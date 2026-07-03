@@ -61,6 +61,7 @@ See [resources/research.md](resources/RESEARCH.md) for source links and implemen
 Install dependencies:
 
 ```bash
+nvm use
 pnpm install
 ```
 

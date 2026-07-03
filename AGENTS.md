@@ -24,6 +24,7 @@ Core surfaces:
 ## Development Commands
 
 ```bash
+nvm use
 pnpm install
 pnpm dev:chrome
 pnpm dev:firefox

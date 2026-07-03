@@ -13,12 +13,10 @@
     "zip:chrome": "wxt zip -b chrome",
     "zip:firefox": "wxt zip -b firefox",
     "fix": "biome check --write",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "wxt prepare && tsc --noEmit",
     "check": "biome check && pnpm typecheck"
   },
-  "dependencies": {
-    "@wxt-dev/storage": "^1.2.8"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
     "typescript": "^6.0.3",

@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      '@wxt-dev/storage':
-        specifier: ^1.2.8
-        version: 1.2.8
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.4.16

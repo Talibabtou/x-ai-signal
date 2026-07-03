@@ -1,7 +1,7 @@
 import { defineConfig } from 'wxt';
 
 export default defineConfig({
-  modules: ['@wxt-dev/storage/module'],
+  srcDir: 'src',
   manifest: {
     name: 'Twitter AI Blocker',
     description:
