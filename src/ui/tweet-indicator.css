@@ -7,3 +7,27 @@
 .taib-ai-avatar-signal--unknown {
   outline-color: #71767b;
 }
+
+.taib-ai-avatar-signal--low {
+  outline-color: #00ba7c;
+}
+
+.taib-ai-avatar-signal--medium {
+  outline-color: #f5a623;
+}
+
+.taib-ai-avatar-signal--high {
+  outline-color: #f4212e;
+}
+
+.taib-ai-accessible-signal {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -1,5 +1,5 @@
 {
-  "name": "twitter-ai-blocker",
+  "name": "x-ai-signal",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -14,15 +14,17 @@
     "zip:chrome": "wxt zip -b chrome",
     "zip:firefox": "wxt zip -b firefox",
     "fix": "biome check --write",
+    "test": "node --test src/content/*.test.mjs src/scoring/*.test.mjs",
     "typecheck": "wxt prepare && tsc --noEmit",
     "check": "biome check && pnpm typecheck",
-    "verify": "pnpm check && pnpm build:chrome && pnpm build:firefox"
+    "verify": "pnpm check && pnpm test && pnpm build:chrome && pnpm build:firefox"
   },
   "dependencies": {},
   "devDependencies": {
-    "@biomejs/biome": "^2.4.16",
+    "@biomejs/biome": "^2.5.2",
+    "linkedom": "^0.18.12",
     "typescript": "^6.0.3",
-    "wxt": "^0.20.26"
+    "wxt": "^0.20.27"
   },
-  "packageManager": "pnpm@11.5.2"
+  "packageManager": "pnpm@11.9.0"
 }

@@ -13,30 +13,32 @@ Work in order. Later phases stay intentionally short until the indicator proves 
 - [x] Process newly rendered tweets without rescanning the full document.
 - [x] Prevent duplicate indicators and remove injected UI when WXT invalidates the content script.
 - [x] Document one-time manual installation and the save/reload loop for Brave.
-- [ ] Load `extension-builds/chrome-mv3-dev` in the main Brave profile and verify the indicator on home, a post thread, search, and a profile.
-- [ ] Confirm that saving `src/entrypoints/content.ts`, `src/content/tweet-indicator.ts`, or `src/ui/tweet-indicator.css` updates the loaded development extension.
+- [x] Load `extension-builds/chrome-mv3-dev` in the main Brave profile and verify the indicator on home, a post thread, search, and a profile.
+- [x] Confirm that saving `src/entrypoints/content.ts`, `src/content/tweet-indicator.ts`, or `src/ui/tweet-indicator.css` updates the loaded development extension.
 
 Gate: every visible tweet receives exactly one gray profile-picture border, infinite scrolling adds new borders, X controls still work, and normal source edits do not require reinstalling the extension.
 
 ## Phase 1: extract rendered evidence
 
-- [ ] Extract the tweet's own text without mixing in author labels, counters, quoted tweets, or surrounding UI.
-- [ ] Extract only account information already rendered with the tweet: handle, display name, visible badge, and visible relationship label when present.
-- [ ] Return `unknown` when text or the author anchor cannot be extracted; never guess from missing data.
-- [ ] Keep all X selectors in `src/content/` and document what each selector identifies.
-- [ ] Add small sanitized HTML fixtures for a normal tweet, reply, quote, promoted item, media-only tweet, and missing-text state.
-- [ ] Verify extraction against both Chromium and Firefox builds.
+- [x] Extract the tweet's own text without mixing in author labels, counters, quoted tweets, or surrounding UI.
+- [x] Extract only account information already rendered with the tweet: handle, display name, visible badge, and visible relationship label when present.
+- [x] Return `unknown` when text or the author anchor cannot be extracted; never guess from missing data.
+- [x] Keep all X selectors in `src/content/` and document what each selector identifies.
+- [x] Add small sanitized HTML fixtures for a normal tweet, reply, quote, promoted item, media-only tweet, and missing-text state.
+- [x] Verify extraction tests and both Chromium and Firefox builds through `pnpm verify`.
+- [x] In live Brave, confirm text tweets expose `data-taib-ai-indicator="ready"` and missing-text tweets remain `unknown`.
 
 Gate: fixture extraction matches what a person sees and never makes an X request.
 
 ## Phase 2: content-only suspicion score
 
-- [ ] Define four results: `unknown`, `low`, `medium`, and `high` suspicion.
-- [ ] Return reasons with the result; never label a post or account as confirmed AI or confirmed human.
-- [ ] Start with a few deterministic text signals and one small test per signal.
-- [ ] Map results to gray, green, amber, and red indicators with an accessible label and native tooltip.
-- [ ] Keep the score pure and local. Do not add a remote model, settings screen, or storage yet.
+- [x] Define four results: `unknown`, `low`, `medium`, and `high` suspicion.
+- [x] Return reasons with the result; never label a post or account as confirmed AI or confirmed human.
+- [x] Start with a few deterministic text signals and one small test per signal.
+- [x] Map results to gray, green, amber, and red indicators with an accessible label and native tooltip.
+- [x] Keep the score pure and local. Do not add a remote model, settings screen, or storage yet.
 - [ ] Add regression fixtures whenever a real human tweet gets a misleading result.
+- [x] In live Brave, confirm borders use the four states and hovering a border explains its result.
 
 Gate: every colored indicator can explain itself, while short or unsupported text remains gray.
 
@@ -76,3 +78,4 @@ Gate: both release packages pass their browser smoke checks with no account-chan
 - [Control Panel for Twitter](https://github.com/insin/control-panel-for-twitter) for X breakage history and browser releases, not for its large injected script
 - [Refined GitHub](https://github.com/refined-github/refined-github) for duplicate-load protection and abortable SPA cleanup
 - [MDN WebExtension examples](https://github.com/mdn/webextensions-examples) and [Chrome extension samples](https://github.com/GoogleChrome/chrome-extensions-samples) for individual browser APIs
+

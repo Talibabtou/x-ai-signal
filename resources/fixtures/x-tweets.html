@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <body>
+    <article data-testid="tweet" data-fixture="normal">
+      <div data-testid="Tweet-User-Avatar"></div>
+      <div data-testid="User-Name">
+        <a href="/alice"><span>Alice Example</span></a>
+        <svg data-testid="icon-verified"><title>Verified account</title></svg>
+        <a href="/alice"><span>@alice</span></a>
+        <span>Follows you</span>
+      </div>
+      <div data-testid="tweetText">A normal rendered tweet.</div>
+      <div data-testid="socialContext">12 replies, 34 likes</div>
+    </article>
+
+    <article data-testid="tweet" data-fixture="reply">
+      <div data-testid="Tweet-User-Avatar"></div>
+      <div data-testid="User-Name">
+        <a href="/bob"><span>Bob</span></a>
+        <a href="/bob"><span>@bob</span></a>
+      </div>
+      <div data-testid="tweetText">This is the reply body.</div>
+    </article>
+
+    <article data-testid="tweet" data-fixture="quote">
+      <div data-testid="Tweet-User-Avatar"></div>
+      <div data-testid="User-Name">
+        <a href="/carol"><span>Carol</span></a>
+        <a href="/carol"><span>@carol</span></a>
+      </div>
+      <div data-testid="tweetText">My comment on the quoted post.</div>
+      <div data-testid="quoteTweet">
+        <div data-testid="tweetText">Text from the quoted post.</div>
+      </div>
+    </article>
+
+    <div data-testid="placementTracking">
+      <article data-testid="tweet" data-fixture="promoted">
+        <div data-testid="Tweet-User-Avatar"></div>
+        <div data-testid="User-Name">
+          <a href="/advertiser"><span>Advertiser</span></a>
+          <a href="/advertiser"><span>@advertiser</span></a>
+        </div>
+        <div data-testid="tweetText">Promoted post body.</div>
+      </article>
+    </div>
+
+    <article data-testid="tweet" data-fixture="media-only">
+      <div data-testid="Tweet-User-Avatar"></div>
+      <div data-testid="User-Name">
+        <a href="/dana"><span>Dana</span></a>
+        <a href="/dana"><span>@dana</span></a>
+      </div>
+      <div data-testid="tweetPhoto"><img alt="Mountain at sunrise" /></div>
+    </article>
+
+    <article data-testid="tweet" data-fixture="missing-text">
+      <div data-testid="Tweet-User-Avatar"></div>
+      <div data-testid="User-Name">
+        <a href="/eve"><span>Eve</span></a>
+        <a href="/eve"><span>@eve</span></a>
+      </div>
+    </article>
+
+    <article data-testid="tweet" data-fixture="missing-author">
+      <div data-testid="Tweet-User-Avatar"></div>
+      <div data-testid="tweetText">Text without a rendered author anchor.</div>
+    </article>
+  </body>
+</html>
