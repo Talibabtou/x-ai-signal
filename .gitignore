@@ -12,6 +12,7 @@ node_modules/
 
 # Extension framework and build output
 .output/
+extension-builds/
 .wxt/
 dist/
 build/

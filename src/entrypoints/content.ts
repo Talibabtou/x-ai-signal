@@ -1,19 +1,12 @@
-import { createReplyScanner } from '../content/reply-scanner';
-import { mountReviewBuffer } from '../ui/review-buffer';
+import { createTweetIndicatorLayer } from '../content/tweet-indicator';
+import '../ui/tweet-indicator.css';
 
 export default defineContentScript({
   matches: ['https://x.com/*', 'https://twitter.com/*'],
   runAt: 'document_idle',
-  main() {
-    const buffer = mountReviewBuffer();
-    const scanner = createReplyScanner({
-      onVerdict(verdict) {
-        if (verdict.action === 'hide-for-review') {
-          buffer.add(verdict);
-        }
-      },
-    });
-
-    scanner.start();
+  main(ctx) {
+    const indicators = createTweetIndicatorLayer();
+    indicators.start();
+    ctx.onInvalidated(indicators.stop);
   },
 });

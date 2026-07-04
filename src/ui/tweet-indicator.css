@@ -1,0 +1,9 @@
+.taib-ai-avatar-signal {
+  border-radius: 50%;
+  outline: 3px solid transparent;
+  outline-offset: 2px;
+}
+
+.taib-ai-avatar-signal--unknown {
+  outline-color: #71767b;
+}

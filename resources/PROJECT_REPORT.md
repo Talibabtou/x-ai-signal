@@ -1,5 +1,7 @@
 # Project direction report
 
+> Update, 2026-07-03: the first product milestone is now indicator-only on every visible tweet. Hiding, collapsing, review queues, storage, and account actions are out of scope. See `README.md` and `TODO.md` for the current plan; the filtering discussion below records the earlier analysis.
+
 Reviewed: 2026-07-01
 
 ## Decision
@@ -153,14 +155,14 @@ export default defineConfig({
 Then use this loop:
 
 1. Run `nvm use`, `pnpm install`, and `pnpm dev:chrome`.
-2. In the main Brave profile, open `brave://extensions`, turn on Developer mode, click **Load unpacked**, and select `.output/chrome-mv3-dev`.
+2. In the main Brave profile, open `brave://extensions`, turn on Developer mode, click **Load unpacked**, and select `extension-builds/chrome-mv3-dev`.
 3. Keep the dev command running. Load the extension only once; WXT writes updates to the same directory.
 4. After content-script or manifest changes, reload the extension and refresh the X tab. Popup-only changes normally need only reopening the popup. WXT also adds `Alt+R` in development.
 5. Before a manual test session, run `pnpm check` and `pnpm build:chrome`.
 
 Brave supports Chromium-compatible extensions, and Chromium's documented local flow uses Developer mode plus **Load unpacked**. See [Brave extension support](https://support.brave.app/hc/en-us/articles/360017909112-How-can-I-add-extensions-to-Brave) and [Chrome's unpacked-extension instructions](https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked).
 
-Use the production output `.output/chrome-mv3` only for release smoke tests. The development output is `.output/chrome-mv3-dev` in WXT 0.20.
+Use the production output `extension-builds/chrome-mv3` only for release smoke tests. The development output is `extension-builds/chrome-mv3-dev` in WXT 0.20.
 
 ## Safety specification
 

@@ -1,18 +1,17 @@
-# Twitter AI Blocker
+# X AI Signal
 
-Browser extension experiment for detecting likely AI-generated replies under large X/Twitter posts, hiding uncertain replies, and preparing a human review flow before account blocking.
+Read-only browser extension experiment that adds an AI-writing suspicion indicator beside visible X/Twitter posts. It does not hide posts or perform account actions.
 
 ## Goal
 
-When a post is opened on X/Twitter, the extension should scan visible replies and assign each reply a human-confidence score from `0` to `100`.
+The first milestone adds one gray border around the profile picture on every visible tweet and reply. Later milestones can color it from green to red using explainable, local signals.
 
-- `0`: very likely AI-generated or automated.
-- `100`: very likely human.
-- Low score: hide from the thread and eventually block if the user enables that policy.
-- Mid score: hide into a review buffer where the user can choose `let` or `block`.
-- High score: leave visible.
+- Gray: not scored or insufficient information.
+- Green: few suspicious writing signals.
+- Amber: mixed signals.
+- Red: several suspicious writing signals.
 
-The first implementation should avoid automatic account blocking. It should prove that reply extraction, scoring, local hiding, and review UX work reliably before any irreversible account action is added.
+Colors express suspicion, not proof of human or AI authorship. The user decides what to do with the information.
 
 ## Current Recommendation
 
@@ -65,17 +64,32 @@ nvm use
 pnpm install
 ```
 
-Run Chrome target:
+### Develop in the existing Brave profile
+
+WXT is configured not to launch a separate browser. Start the development build:
 
 ```bash
-pnpm dev:chrome
+pnpm dev:brave
 ```
 
-Run Firefox target:
+For the first install only:
+
+1. Open `brave://extensions` in the Brave profile already logged into X.
+2. Enable **Developer mode**.
+3. Click **Load unpacked**.
+4. Select this repository's `extension-builds/chrome-mv3-dev` directory.
+
+Keep `pnpm dev:brave` running. For normal TypeScript and CSS edits, save the file and refresh the X tab if the indicator does not refresh automatically. Use WXT's `Alt+R` development shortcut as a fallback.
+
+Do not remove and re-add the extension after each edit. Only click the extension's reload button in `brave://extensions` after changing `wxt.config.ts`, the manifest, or entrypoint files. Always keep the loaded path on `extension-builds/chrome-mv3-dev`, not `extension-builds/chrome-mv3`.
+
+Run Firefox manually when needed:
 
 ```bash
 pnpm dev:firefox
 ```
+
+Then load `extension-builds/firefox-mv2-dev/manifest.json` as a temporary add-on from `about:debugging`.
 
 Build distributable extension output:
 
@@ -84,21 +98,23 @@ pnpm build:chrome
 pnpm build:firefox
 ```
 
-WXT writes browser-specific output under `.output/`.
+WXT writes browser-specific output under the visible `extension-builds/` directory. Git ignores this generated directory.
+
+Verify checks and both production builds:
+
+```bash
+pnpm verify
+```
 
 ## First Milestones
 
-1. Detect when the user is on a post detail page.
-2. Extract reply text, author handle, reply URL, and visible account metadata from each reply.
-3. Implement a deterministic local scoring baseline.
-4. Hide low and mid-confidence replies without mutating the X account.
-5. Add a review buffer with `let` and `block` actions.
-6. Store human decisions locally for evaluation.
-7. Add an optional X API blocking integration only after OAuth and explicit consent are designed.
+1. Add exactly one gray profile-picture border to every visible tweet and reply.
+2. Extract the tweet's own rendered text and visible author information.
+3. Add a small deterministic suspicion score with visible reasons.
+4. Verify the same read-only behavior in Chromium and Firefox.
 
 ## Open Questions
 
-- Should the first version support only English replies, or multilingual scoring from the start?
-- Should suspected replies be hidden immediately, blurred, collapsed, or moved to a side buffer?
-- Should user feedback stay fully local, or can anonymized examples be exported manually for model tuning?
-- What false-positive rate is acceptable before adding any automatic block mode?
+- Should unsupported languages remain gray until they have their own evaluated signals?
+- Which rendered account fields are stable enough to use without visiting profiles or calling X endpoints?
+- Should the first colored score use a number, four bands, or only the color and reasons?
