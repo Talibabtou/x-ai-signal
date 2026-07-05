@@ -7,6 +7,8 @@ export const X_SELECTORS = {
   author: '[data-testid="User-Name"]',
   // The profile-picture container used by the read-only indicator.
   avatar: '[data-testid="Tweet-User-Avatar"]',
+  // The user summary card X renders after hovering a profile link or picture.
+  hoverCard: '[data-testid="HoverCard"]',
   // The container X currently uses around quoted post content.
   quote: '[data-testid="quoteTweet"]',
   // X's visible verification badge.

@@ -33,6 +33,7 @@ web-ext-profile/
 coverage/
 playwright-report/
 test-results/
+.playwright-cli/
 .nyc_output/
 
 # Logs

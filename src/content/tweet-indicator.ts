@@ -4,8 +4,8 @@ import { X_SELECTORS } from './x-selectors';
 
 const INDICATOR_ATTRIBUTE = 'data-taib-ai-indicator';
 const EVIDENCE_ATTRIBUTE = 'data-taib-ai-evidence';
-const ORIGINAL_TITLE_ATTRIBUTE = 'data-taib-ai-original-title';
 const ACCESSIBLE_INDICATOR_CLASS = 'taib-ai-accessible-signal';
+const HOVER_CARD_INDICATOR_CLASS = 'taib-ai-hover-card-signal';
 const SIGNAL_CLASSES = [
   'taib-ai-avatar-signal--unknown',
   'taib-ai-avatar-signal--low',
@@ -29,10 +29,40 @@ function updateAccessibleIndicator(avatar: HTMLElement, description: string) {
   }
 
   accessibleIndicator.setAttribute('aria-label', description);
-  if (!avatar.hasAttribute(ORIGINAL_TITLE_ATTRIBUTE)) {
-    avatar.setAttribute(ORIGINAL_TITLE_ATTRIBUTE, avatar.getAttribute('title') ?? '');
+}
+
+function updateHoverCardIndicator(avatar: HTMLElement | undefined) {
+  const description = avatar
+    ?.querySelector<HTMLElement>(`.${ACCESSIBLE_INDICATOR_CLASS}`)
+    ?.getAttribute('aria-label');
+  const level = avatar?.getAttribute(INDICATOR_ATTRIBUTE) as SuspicionLevel | null | undefined;
+
+  for (const hoverCard of document.querySelectorAll<HTMLElement>(X_SELECTORS.hoverCard)) {
+    let indicator = hoverCard.querySelector<HTMLElement>(`.${HOVER_CARD_INDICATOR_CLASS}`);
+
+    if (!description || !level) {
+      indicator?.remove();
+      continue;
+    }
+
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.className = HOVER_CARD_INDICATOR_CLASS;
+      indicator.innerHTML =
+        '<span class="taib-ai-hover-card-dot" aria-hidden="true"></span><span class="taib-ai-hover-card-text"></span>';
+      (hoverCard.firstElementChild ?? hoverCard).append(indicator);
+    }
+
+    indicator.setAttribute('aria-label', description);
+    if (indicator.getAttribute('data-taib-ai-level') !== level) {
+      indicator.setAttribute('data-taib-ai-level', level);
+    }
+
+    const text = indicator.querySelector<HTMLElement>('.taib-ai-hover-card-text');
+    if (text && text.textContent !== description) {
+      text.textContent = description;
+    }
   }
-  avatar.title = description;
 }
 
 function addIndicator(tweet: HTMLElement) {
@@ -62,10 +92,50 @@ function scan(root: ParentNode) {
 
 export function createTweetIndicatorLayer() {
   let observer: MutationObserver | undefined;
+  let activeAvatar: HTMLElement | undefined;
+  let clearActiveAvatarTimer: number | undefined;
+
+  const keepActiveAvatar = () => {
+    if (clearActiveAvatarTimer !== undefined) {
+      window.clearTimeout(clearActiveAvatarTimer);
+      clearActiveAvatarTimer = undefined;
+    }
+  };
+
+  const clearActiveAvatarAfterDelay = () => {
+    if (clearActiveAvatarTimer !== undefined) return;
+
+    clearActiveAvatarTimer = window.setTimeout(() => {
+      activeAvatar = undefined;
+      clearActiveAvatarTimer = undefined;
+      updateHoverCardIndicator(undefined);
+    }, 1000);
+  };
+
+  const handlePointerOver = (event: Event) => {
+    if (!(event.target instanceof Element)) return;
+
+    const avatar = event.target.closest<HTMLElement>(`[${INDICATOR_ATTRIBUTE}]`);
+    if (avatar) {
+      keepActiveAvatar();
+      activeAvatar = avatar;
+      updateHoverCardIndicator(activeAvatar);
+      return;
+    }
+
+    if (event.target.closest(X_SELECTORS.hoverCard)) {
+      keepActiveAvatar();
+      return;
+    }
+
+    clearActiveAvatarAfterDelay();
+  };
 
   return {
     start() {
       scan(document);
+      document.addEventListener('pointerover', handlePointerOver, true);
+      document.addEventListener('focusin', handlePointerOver, true);
 
       observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
@@ -78,6 +148,8 @@ export function createTweetIndicatorLayer() {
             if (node instanceof Element) scan(node);
           }
         }
+
+        updateHoverCardIndicator(activeAvatar);
       });
 
       observer.observe(document.documentElement, { childList: true, subtree: true });
@@ -85,13 +157,16 @@ export function createTweetIndicatorLayer() {
     stop() {
       observer?.disconnect();
       observer = undefined;
+      keepActiveAvatar();
+      activeAvatar = undefined;
+      document.removeEventListener('pointerover', handlePointerOver, true);
+      document.removeEventListener('focusin', handlePointerOver, true);
+      document.querySelectorAll(`.${HOVER_CARD_INDICATOR_CLASS}`).forEach((indicator) => {
+        indicator.remove();
+      });
       document.querySelectorAll<HTMLElement>(`[${INDICATOR_ATTRIBUTE}]`).forEach((avatar) => {
         avatar.removeAttribute(INDICATOR_ATTRIBUTE);
         avatar.removeAttribute(EVIDENCE_ATTRIBUTE);
-        const originalTitle = avatar.getAttribute(ORIGINAL_TITLE_ATTRIBUTE);
-        if (originalTitle) avatar.title = originalTitle;
-        else avatar.removeAttribute('title');
-        avatar.removeAttribute(ORIGINAL_TITLE_ATTRIBUTE);
         avatar.classList.remove('taib-ai-avatar-signal', ...SIGNAL_CLASSES);
         avatar.querySelector(`.${ACCESSIBLE_INDICATOR_CLASS}`)?.remove();
       });
