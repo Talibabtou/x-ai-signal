@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { parseHTML } from 'linkedom';
-import { extractRenderedTweet } from './tweet-extractor.ts';
+import { extractRenderedTweet } from '../src/content/tweet-extractor.ts';
 
 const fixtureHtml = await readFile(
-  new URL('../../resources/fixtures/x-tweets.html', import.meta.url),
+  new URL('../resources/fixtures/x-tweets.html', import.meta.url),
   'utf8',
 );
 const { document } = parseHTML(fixtureHtml);
@@ -25,7 +25,17 @@ test('extracts rendered tweet and author evidence', () => {
     verified: true,
     relationshipLabel: 'Follows you',
     promoted: false,
+    postId: '123456789',
+    publishedAt: Date.parse('2026-07-05T10:30:00.000Z'),
+    probableSpam: false,
   });
+});
+
+test('extracts a rendered post ID and timestamp', () => {
+  const evidence = extractRenderedTweet(fixture('normal'));
+
+  assert.equal(evidence.postId, '123456789');
+  assert.equal(evidence.publishedAt, Date.parse('2026-07-05T10:30:00.000Z'));
 });
 
 test('extracts replies without surrounding UI', () => {
@@ -38,6 +48,11 @@ test('does not mix quoted text into the post body', () => {
 
 test('recognizes promoted content from its rendered wrapper', () => {
   assert.equal(extractRenderedTweet(fixture('promoted')).promoted, true);
+});
+
+test('recognizes replies rendered after X probable-spam control', () => {
+  assert.equal(extractRenderedTweet(fixture('probable-spam')).probableSpam, true);
+  assert.equal(extractRenderedTweet(fixture('normal')).probableSpam, false);
 });
 
 test('returns unknown when text or the author anchor is absent', () => {

@@ -14,7 +14,7 @@
     "zip:chrome": "wxt zip -b chrome",
     "zip:firefox": "wxt zip -b firefox",
     "fix": "biome check --write",
-    "test": "node --test src/content/*.test.mjs src/scoring/*.test.mjs",
+    "test": "node --test tests/*.test.mjs",
     "typecheck": "wxt prepare && tsc --noEmit",
     "check": "biome check && pnpm typecheck",
     "verify": "pnpm check && pnpm test && pnpm build:chrome && pnpm build:firefox"

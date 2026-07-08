@@ -1,23 +1,12 @@
 .taib-ai-avatar-signal {
+  position: relative;
   border-radius: 50%;
-  outline: 3px solid transparent;
+  outline: 3px solid var(--taib-ai-border-color, transparent);
   outline-offset: 2px;
 }
 
-.taib-ai-avatar-signal--unknown {
-  outline-color: #71767b;
-}
-
-.taib-ai-avatar-signal--low {
-  outline-color: #00ba7c;
-}
-
-.taib-ai-avatar-signal--medium {
-  outline-color: #f5a623;
-}
-
-.taib-ai-avatar-signal--high {
-  outline-color: #f4212e;
+.taib-ai-avatar-signal[data-taib-ai-avatar-shape="square"] {
+  border-radius: 15%;
 }
 
 .taib-ai-accessible-signal {
@@ -50,7 +39,7 @@
   width: 10px;
   height: 10px;
   margin-top: 5px;
-  background: #71767b;
+  background: var(--taib-ai-signal-color, #71767b);
   border-radius: 50%;
 }
 
@@ -62,16 +51,4 @@
   font-size: 15px;
   font-weight: 400;
   line-height: 20px;
-}
-
-.taib-ai-hover-card-signal[data-taib-ai-level="low"] .taib-ai-hover-card-dot {
-  background: #00ba7c;
-}
-
-.taib-ai-hover-card-signal[data-taib-ai-level="medium"] .taib-ai-hover-card-dot {
-  background: #f5a623;
-}
-
-.taib-ai-hover-card-signal[data-taib-ai-level="high"] .taib-ai-hover-card-dot {
-  background: #f4212e;
 }

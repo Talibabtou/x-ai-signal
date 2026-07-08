@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>X AI Signal</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>X AI Signal</h1>
+      <p class="description">Local account evidence stored by this browser.</p>
+
+      <dl aria-label="Local evidence summary">
+        <div><dt>Accounts</dt><dd id="account-count">—</dd></div>
+        <div><dt>Observations</dt><dd id="observation-count">—</dd></div>
+        <div><dt>Storage</dt><dd id="storage-size">—</dd></div>
+      </dl>
+
+      <p id="retention" class="retention">Loading retention policy…</p>
+      <button id="delete-evidence" type="button">Delete all local evidence</button>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

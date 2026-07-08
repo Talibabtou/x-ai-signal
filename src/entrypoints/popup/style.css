@@ -1,0 +1,99 @@
+:root {
+  color: #0f1419;
+  background: #fff;
+  font-family: TwitterChirp, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  width: min(300px, 100vw);
+  margin: 0;
+}
+
+main {
+  padding: 16px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.description,
+.retention,
+.status {
+  color: #536471;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.description {
+  margin: 4px 0 16px;
+}
+
+dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+dl div {
+  display: flex;
+  justify-content: space-between;
+}
+
+dt {
+  color: #536471;
+}
+
+dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.retention {
+  margin: 16px 0;
+}
+
+button {
+  width: 100%;
+  padding: 9px 12px;
+  color: #f4212e;
+  font: inherit;
+  font-weight: 700;
+  background: transparent;
+  border: 1px solid #cfd9de;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: rgb(244 33 46 / 10%);
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.status {
+  min-height: 18px;
+  margin: 10px 0 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #e7e9ea;
+    background: #000;
+  }
+
+  .description,
+  .retention,
+  .status,
+  dt {
+    color: #71767b;
+  }
+
+  button {
+    border-color: #536471;
+  }
+}

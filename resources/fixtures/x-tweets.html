@@ -9,6 +9,7 @@
         <a href="/alice"><span>@alice</span></a>
         <span>Follows you</span>
       </div>
+      <a href="/alice/status/123456789"><time datetime="2026-07-05T10:30:00.000Z">1h</time></a>
       <div data-testid="tweetText">A normal rendered tweet.</div>
       <div data-testid="socialContext">12 replies, 34 likes</div>
     </article>
@@ -65,6 +66,17 @@
     <article data-testid="tweet" data-fixture="missing-author">
       <div data-testid="Tweet-User-Avatar"></div>
       <div data-testid="tweetText">Text without a rendered author anchor.</div>
+    </article>
+
+    <button type="button"><span>Show probable spam</span></button>
+    <article data-testid="tweet" data-fixture="probable-spam">
+      <div data-testid="Tweet-User-Avatar"></div>
+      <div data-testid="User-Name">
+        <a href="/spammer"><span>Possible Spammer</span></a>
+        <a href="/spammer"><span>@spammer</span></a>
+      </div>
+      <a href="/spammer/status/999"><time datetime="2026-07-05T11:00:00.000Z">30m</time></a>
+      <div data-testid="tweetText">A reply rendered after the probable spam control.</div>
     </article>
   </body>
 </html>

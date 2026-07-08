@@ -1,9 +1,22 @@
+import {
+  type AccountScoreV1,
+  createPostObservation,
+  normalizeAccountKey,
+  type ObservePostMessage,
+  type ObservePostResponse,
+} from '../scoring/account-evidence';
 import { type SuspicionLevel, scoreContentSuspicion } from '../scoring/content-suspicion';
+import { detectAvatarShape } from '../ui/avatar-shape';
+import { coverageOpacity, humanScoreColor } from '../ui/signal-color';
 import { extractRenderedTweet } from './tweet-extractor';
 import { X_SELECTORS } from './x-selectors';
 
 const INDICATOR_ATTRIBUTE = 'data-taib-ai-indicator';
 const EVIDENCE_ATTRIBUTE = 'data-taib-ai-evidence';
+const SCORE_ATTRIBUTE = 'data-taib-ai-human-score';
+const COVERAGE_ATTRIBUTE = 'data-taib-ai-coverage';
+const ACCOUNT_ATTRIBUTE = 'data-taib-ai-account-key';
+const AVATAR_SHAPE_ATTRIBUTE = 'data-taib-ai-avatar-shape';
 const ACCESSIBLE_INDICATOR_CLASS = 'taib-ai-accessible-signal';
 const HOVER_CARD_INDICATOR_CLASS = 'taib-ai-hover-card-signal';
 const SIGNAL_CLASSES = [
@@ -13,9 +26,8 @@ const SIGNAL_CLASSES = [
   'taib-ai-avatar-signal--high',
 ];
 
-function indicatorDescription(level: SuspicionLevel, reasons: string[]): string {
-  const label = level === 'unknown' ? 'Unknown' : `${level[0]?.toUpperCase()}${level.slice(1)}`;
-  return `AI-writing suspicion: ${label} (content only). ${reasons.join(' ')}`;
+function indicatorDescription(humanScore: number, coverage: number, reasons: string[]): string {
+  return `Human-likeness signal: ${humanScore}/100; evidence coverage: ${coverage}/100. ${reasons.join(' ')}`;
 }
 
 function updateAccessibleIndicator(avatar: HTMLElement, description: string) {
@@ -36,11 +48,14 @@ function updateHoverCardIndicator(avatar: HTMLElement | undefined) {
     ?.querySelector<HTMLElement>(`.${ACCESSIBLE_INDICATOR_CLASS}`)
     ?.getAttribute('aria-label');
   const level = avatar?.getAttribute(INDICATOR_ATTRIBUTE) as SuspicionLevel | null | undefined;
+  const score = avatar?.getAttribute(SCORE_ATTRIBUTE);
+  const signalColor = avatar?.style.getPropertyValue('--taib-ai-signal-color');
 
   for (const hoverCard of document.querySelectorAll<HTMLElement>(X_SELECTORS.hoverCard)) {
     let indicator = hoverCard.querySelector<HTMLElement>(`.${HOVER_CARD_INDICATOR_CLASS}`);
+    const contentRoot = hoverCard.firstElementChild;
 
-    if (!description || !level) {
+    if (!description || !level || !score || !(contentRoot instanceof HTMLElement)) {
       indicator?.remove();
       continue;
     }
@@ -50,43 +65,100 @@ function updateHoverCardIndicator(avatar: HTMLElement | undefined) {
       indicator.className = HOVER_CARD_INDICATOR_CLASS;
       indicator.innerHTML =
         '<span class="taib-ai-hover-card-dot" aria-hidden="true"></span><span class="taib-ai-hover-card-text"></span>';
-      (hoverCard.firstElementChild ?? hoverCard).append(indicator);
+      contentRoot.append(indicator);
+    } else if (
+      indicator.parentElement !== contentRoot ||
+      indicator !== contentRoot.lastElementChild
+    ) {
+      contentRoot.append(indicator);
     }
 
     indicator.setAttribute('aria-label', description);
+    indicator.style.setProperty('--taib-ai-signal-color', signalColor || '#71767b');
     if (indicator.getAttribute('data-taib-ai-level') !== level) {
       indicator.setAttribute('data-taib-ai-level', level);
     }
 
     const text = indicator.querySelector<HTMLElement>('.taib-ai-hover-card-text');
-    if (text && text.textContent !== description) {
-      text.textContent = description;
+    const shortDescription = `Human-likeness signal: ${score}/100`;
+    if (text && text.textContent !== shortDescription) {
+      text.textContent = shortDescription;
     }
   }
 }
 
-function addIndicator(tweet: HTMLElement) {
-  const avatar = tweet.querySelector<HTMLElement>(X_SELECTORS.avatar);
-  if (!avatar) return;
+function applyScoreToAvatar(
+  avatar: HTMLElement,
+  score: Pick<AccountScoreV1, 'humanScore' | 'coverage' | 'level' | 'reasons'>,
+) {
+  const signalColor = humanScoreColor(score.humanScore);
+  const borderColor = humanScoreColor(score.humanScore, coverageOpacity(score.coverage));
+  const description = indicatorDescription(score.humanScore, score.coverage, score.reasons);
 
-  const evidence = extractRenderedTweet(tweet);
-  const result = scoreContentSuspicion(evidence.status === 'ready' ? evidence.text : null);
-  const description = indicatorDescription(result.level, result.reasons);
-
-  avatar.setAttribute(INDICATOR_ATTRIBUTE, result.level);
-  avatar.setAttribute(EVIDENCE_ATTRIBUTE, evidence.status);
+  avatar.setAttribute(INDICATOR_ATTRIBUTE, score.level);
+  avatar.setAttribute(SCORE_ATTRIBUTE, String(score.humanScore));
+  avatar.setAttribute(COVERAGE_ATTRIBUTE, String(score.coverage));
+  avatar.setAttribute(AVATAR_SHAPE_ATTRIBUTE, detectAvatarShape(avatar));
+  avatar.style.setProperty('--taib-ai-signal-color', signalColor);
+  avatar.style.setProperty('--taib-ai-border-color', borderColor);
   avatar.classList.remove(...SIGNAL_CLASSES);
-  avatar.classList.add('taib-ai-avatar-signal', `taib-ai-avatar-signal--${result.level}`);
+  avatar.classList.add('taib-ai-avatar-signal', `taib-ai-avatar-signal--${score.level}`);
   updateAccessibleIndicator(avatar, description);
 }
 
-function scan(root: ParentNode) {
+function updateAccountIndicators(accountKey: string, score: AccountScoreV1) {
+  for (const avatar of document.querySelectorAll<HTMLElement>(`[${ACCOUNT_ATTRIBUTE}]`)) {
+    if (avatar.getAttribute(ACCOUNT_ATTRIBUTE) === accountKey) {
+      applyScoreToAvatar(avatar, score);
+    }
+  }
+}
+
+function addIndicator(tweet: HTMLElement, observedTweets: WeakSet<HTMLElement>) {
+  const avatar = tweet.querySelector<HTMLElement>(X_SELECTORS.avatar);
+  if (!avatar) return;
+  if (observedTweets.has(tweet) && avatar.hasAttribute(SCORE_ATTRIBUTE)) return;
+
+  const evidence = extractRenderedTweet(tweet);
+  const result = scoreContentSuspicion(evidence.status === 'ready' ? evidence.text : null, {
+    probableSpam: evidence.probableSpam,
+  });
+  const accountKey = evidence.handle ? normalizeAccountKey(evidence.handle) : null;
+
+  avatar.setAttribute(EVIDENCE_ATTRIBUTE, evidence.status);
+  if (accountKey) avatar.setAttribute(ACCOUNT_ATTRIBUTE, accountKey);
+  applyScoreToAvatar(avatar, result);
+
+  if (!observedTweets.has(tweet) && evidence.handle) {
+    observedTweets.add(tweet);
+    const observation = createPostObservation(
+      evidence.handle,
+      evidence.text,
+      evidence.postId,
+      evidence.publishedAt,
+      result,
+      evidence.probableSpam,
+    );
+
+    if (observation) {
+      const message: ObservePostMessage = { type: 'x-ai-signal:observe-post', observation };
+      void browser.runtime
+        .sendMessage(message)
+        .then((response: ObservePostResponse | undefined) => {
+          if (response) updateAccountIndicators(observation.accountKey, response.score);
+        })
+        .catch(() => undefined);
+    }
+  }
+}
+
+function scan(root: ParentNode, observedTweets: WeakSet<HTMLElement>) {
   if (root instanceof HTMLElement && root.matches(X_SELECTORS.tweet)) {
-    addIndicator(root);
+    addIndicator(root, observedTweets);
   }
 
   for (const tweet of root.querySelectorAll<HTMLElement>(X_SELECTORS.tweet)) {
-    addIndicator(tweet);
+    addIndicator(tweet, observedTweets);
   }
 }
 
@@ -94,6 +166,7 @@ export function createTweetIndicatorLayer() {
   let observer: MutationObserver | undefined;
   let activeAvatar: HTMLElement | undefined;
   let clearActiveAvatarTimer: number | undefined;
+  const observedTweets = new WeakSet<HTMLElement>();
 
   const keepActiveAvatar = () => {
     if (clearActiveAvatarTimer !== undefined) {
@@ -133,7 +206,7 @@ export function createTweetIndicatorLayer() {
 
   return {
     start() {
-      scan(document);
+      scan(document, observedTweets);
       document.addEventListener('pointerover', handlePointerOver, true);
       document.addEventListener('focusin', handlePointerOver, true);
 
@@ -141,11 +214,11 @@ export function createTweetIndicatorLayer() {
         for (const mutation of mutations) {
           if (mutation.target instanceof Element) {
             const tweet = mutation.target.closest<HTMLElement>(X_SELECTORS.tweet);
-            if (tweet) addIndicator(tweet);
+            if (tweet) addIndicator(tweet, observedTweets);
           }
 
           for (const node of mutation.addedNodes) {
-            if (node instanceof Element) scan(node);
+            if (node instanceof Element) scan(node, observedTweets);
           }
         }
 
@@ -167,6 +240,12 @@ export function createTweetIndicatorLayer() {
       document.querySelectorAll<HTMLElement>(`[${INDICATOR_ATTRIBUTE}]`).forEach((avatar) => {
         avatar.removeAttribute(INDICATOR_ATTRIBUTE);
         avatar.removeAttribute(EVIDENCE_ATTRIBUTE);
+        avatar.removeAttribute(SCORE_ATTRIBUTE);
+        avatar.removeAttribute(COVERAGE_ATTRIBUTE);
+        avatar.removeAttribute(ACCOUNT_ATTRIBUTE);
+        avatar.removeAttribute(AVATAR_SHAPE_ATTRIBUTE);
+        avatar.style.removeProperty('--taib-ai-signal-color');
+        avatar.style.removeProperty('--taib-ai-border-color');
         avatar.classList.remove('taib-ai-avatar-signal', ...SIGNAL_CLASSES);
         avatar.querySelector(`.${ACCESSIBLE_INDICATOR_CLASS}`)?.remove();
       });

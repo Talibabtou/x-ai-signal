@@ -2,7 +2,13 @@ export type SuspicionLevel = 'unknown' | 'low' | 'medium' | 'high';
 
 export type SuspicionResult = {
   level: SuspicionLevel;
+  humanScore: number;
+  coverage: number;
   reasons: string[];
+};
+
+export type ContentScoringContext = {
+  probableSpam?: boolean;
 };
 
 const MINIMUM_CHARACTERS = 60;
@@ -37,44 +43,63 @@ function hasStructuredSequence(text: string): boolean {
   return listItems >= 3 || sequenceMarkers >= 3;
 }
 
-export function scoreContentSuspicion(text: string | null): SuspicionResult {
+function levelForScore(humanScore: number, coverage: number): SuspicionLevel {
+  if (coverage === 0) return 'unknown';
+  if (humanScore <= 25) return 'high';
+  if (humanScore <= 50) return 'medium';
+  return 'low';
+}
+
+export function scoreContentSuspicion(
+  text: string | null,
+  context: ContentScoringContext = {},
+): SuspicionResult {
   const normalizedText = text?.replace(/\s+/g, ' ').trim() ?? '';
   const wordCount = normalizedText ? normalizedText.split(/\s+/u).length : 0;
-
-  if (Array.from(normalizedText).length < MINIMUM_CHARACTERS || wordCount < MINIMUM_WORDS) {
-    return {
-      level: 'unknown',
-      reasons: ['Not enough text for a useful content-only score.'],
-    };
-  }
-
-  let points = 0;
+  const hasEnoughText =
+    Array.from(normalizedText).length >= MINIMUM_CHARACTERS && wordCount >= MINIMUM_WORDS;
+  let humanScore = 50;
+  let coverage = 0;
   const reasons: string[] = [];
 
-  if (countMatches(text ?? '', FORMULAIC_PHRASES) >= 2) {
-    points += 2;
-    reasons.push('Contains several formulaic phrases.');
+  if (!hasEnoughText) {
+    reasons.push('Not enough text for a useful content-only score.');
+  } else {
+    let points = 0;
+
+    if (countMatches(text ?? '', FORMULAIC_PHRASES) >= 2) {
+      points += 2;
+      reasons.push('Contains several formulaic phrases.');
+    }
+
+    if (hasStructuredSequence(text ?? '')) {
+      points += 1;
+      reasons.push('Uses a strongly structured list or sequence.');
+    }
+
+    if (countMatches(text ?? '', CONTRAST_PATTERNS) >= 2) {
+      points += 1;
+      reasons.push('Repeats contrast-based sentence framing.');
+    }
+
+    if (points === 0) {
+      reasons.push('No configured writing-pattern signals were found.');
+    }
+
+    humanScore = Math.max(10, 70 - points * 15);
+    coverage = 20;
   }
 
-  if (hasStructuredSequence(text ?? '')) {
-    points += 1;
-    reasons.push('Uses a strongly structured list or sequence.');
-  }
-
-  if (countMatches(text ?? '', CONTRAST_PATTERNS) >= 2) {
-    points += 1;
-    reasons.push('Repeats contrast-based sentence framing.');
-  }
-
-  if (points === 0) {
-    return {
-      level: 'low',
-      reasons: ['No configured writing-pattern signals were found.'],
-    };
+  if (context.probableSpam) {
+    humanScore = Math.max(0, humanScore - 20);
+    coverage = Math.min(100, coverage + 10);
+    reasons.push('X placed this reply behind its probable-spam control.');
   }
 
   return {
-    level: points >= 3 ? 'high' : points >= 2 ? 'medium' : 'low',
+    level: levelForScore(humanScore, coverage),
+    humanScore,
+    coverage,
     reasons,
   };
 }
