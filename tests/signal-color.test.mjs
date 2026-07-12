@@ -15,10 +15,10 @@ test('clamps scores and interpolates intermediate colors', () => {
   assert.equal(humanScoreColor(75), 'rgb(128 199 62)');
 });
 
-test('maps coverage to border opacity and reaches full opacity at 50', () => {
+test('maps coverage to border opacity and reaches full opacity at 100', () => {
   assert.equal(coverageOpacity(0), 0);
-  assert.equal(coverageOpacity(20), 0.4);
-  assert.equal(coverageOpacity(50), 1);
+  assert.equal(coverageOpacity(20), 0.2);
+  assert.equal(coverageOpacity(50), 0.5);
   assert.equal(coverageOpacity(100), 1);
-  assert.equal(humanScoreColor(50, coverageOpacity(20)), 'rgb(255 212 0 / 0.4)');
+  assert.equal(humanScoreColor(50, coverageOpacity(20)), 'rgb(255 212 0 / 0.2)');
 });

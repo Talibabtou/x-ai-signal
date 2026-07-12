@@ -68,6 +68,19 @@
       <div data-testid="tweetText">Text without a rendered author anchor.</div>
     </article>
 
+    <article data-testid="tweet" data-fixture="behavior-features">
+      <div data-testid="Tweet-User-Avatar"></div>
+      <div data-testid="User-Name">
+        <a href="/features"><span>Feature Account</span></a>
+        <a href="/features"><span>@features</span></a>
+      </div>
+      <div lang="en">
+        <div data-testid="tweetText">Thanks @alice, here is the link I mentioned.</div>
+      </div>
+      <a href="https://example.com/report">example.com/report</a>
+      <div data-testid="tweetPhoto"><img alt="Chart" /></div>
+    </article>
+
     <button type="button"><span>Show probable spam</span></button>
     <article data-testid="tweet" data-fixture="probable-spam">
       <div data-testid="Tweet-User-Avatar"></div>
@@ -78,5 +91,26 @@
       <a href="/spammer/status/999"><time datetime="2026-07-05T11:00:00.000Z">30m</time></a>
       <div data-testid="tweetText">A reply rendered after the probable spam control.</div>
     </article>
+
+    <div data-testid="HoverCard" data-fixture="hover-card">
+      <div>
+        <div data-testid="UserAvatar-Container-alice"></div>
+        <a href="/alice"><span>Alice Example</span></a>
+        <svg data-testid="icon-verified"><title>Verified account</title></svg>
+        <a href="/alice"><span>@alice</span></a>
+        <span>Follows you</span>
+        <a href="/alice/following"><span>1,234</span> following</a>
+        <a href="/alice/verified_followers"><span>219,9 k</span> followers</a>
+        <div>Followed by Bob and 249 others you follow</div>
+      </div>
+    </div>
+
+    <main data-fixture="profile-page">
+      <a href="/profileacct"><span>Profile Account</span></a>
+      <svg data-testid="icon-verified"><title>Verified account</title></svg>
+      <a href="/profileacct"><span>@profileacct</span></a>
+      <a href="/profileacct/following"><span>42</span> following</a>
+      <a href="/profileacct/verified_followers"><span>12.5K</span> followers</a>
+    </main>
   </body>
 </html>

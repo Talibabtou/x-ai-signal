@@ -8,12 +8,15 @@ import {
   MAX_POST_AGE_MS,
   MAX_RECENT_POSTS,
   mergePostObservation,
+  mergeProfileSnapshot,
   migrateAccountEvidence,
   type ObservePostMessage,
   type ObservePostResponse,
   type PostObservationV1,
   type StorageSummaryV1,
   scoreAccountEvidence,
+  type UpdateProfileMessage,
+  type UpdateProfileResponse,
 } from '../scoring/account-evidence';
 
 const ACCOUNT_STORAGE_PREFIX = 'account-evidence-v1:';
@@ -128,6 +131,23 @@ export default defineBackground(() => {
     return response;
   };
 
+  const updateProfile = async (
+    message: UpdateProfileMessage,
+  ): Promise<UpdateProfileResponse | undefined> => {
+    await drainPendingObservations();
+    await storageReady;
+
+    const key = storageKey(message.accountKey);
+    const stored = await browser.storage.local.get(key);
+    const current = migrateAccountEvidence(stored[key]);
+    const result = mergeProfileSnapshot(current, message.accountKey, message.profile);
+    if (!result) return undefined;
+
+    if (result.stored) await browser.storage.local.set({ [key]: result.account });
+
+    return { ...result, score: scoreAccountEvidence(result.account) };
+  };
+
   const getStorageSummary = async (): Promise<StorageSummaryV1> => {
     await drainPendingObservations();
     await repairStoredEvidence();
@@ -166,15 +186,25 @@ export default defineBackground(() => {
     async (
       message: unknown,
     ): Promise<
-      ObservePostResponse | StorageSummaryV1 | ClearAccountEvidenceResponse | undefined
+      | ObservePostResponse
+      | UpdateProfileResponse
+      | StorageSummaryV1
+      | ClearAccountEvidenceResponse
+      | undefined
     > => {
       const candidate = message as Partial<
-        ObservePostMessage | GetStorageSummaryMessage | ClearAccountEvidenceMessage
+        | ObservePostMessage
+        | UpdateProfileMessage
+        | GetStorageSummaryMessage
+        | ClearAccountEvidenceMessage
       >;
 
       if (candidate.type === 'x-ai-signal:observe-post') {
         const observation = (message as Partial<ObservePostMessage>).observation;
         return isPostObservationV1(observation) ? queueObservation(observation) : undefined;
+      }
+      if (candidate.type === 'x-ai-signal:update-profile') {
+        return updateProfile(message as UpdateProfileMessage);
       }
       if (candidate.type === 'x-ai-signal:get-storage-summary') return getStorageSummary();
       if (candidate.type === 'x-ai-signal:clear-account-evidence') return clearAccountEvidence();

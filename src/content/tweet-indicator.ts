@@ -4,10 +4,13 @@ import {
   normalizeAccountKey,
   type ObservePostMessage,
   type ObservePostResponse,
+  type UpdateProfileMessage,
+  type UpdateProfileResponse,
 } from '../scoring/account-evidence';
 import { type SuspicionLevel, scoreContentSuspicion } from '../scoring/content-suspicion';
 import { detectAvatarShape } from '../ui/avatar-shape';
 import { coverageOpacity, humanScoreColor } from '../ui/signal-color';
+import { extractRenderedProfileCard, extractRenderedProfilePage } from './profile-card-extractor';
 import { extractRenderedTweet } from './tweet-extractor';
 import { X_SELECTORS } from './x-selectors';
 
@@ -27,7 +30,7 @@ const SIGNAL_CLASSES = [
 ];
 
 function indicatorDescription(humanScore: number, coverage: number, reasons: string[]): string {
-  return `Human-likeness signal: ${humanScore}/100; evidence coverage: ${coverage}/100. ${reasons.join(' ')}`;
+  return `Human-likeness: ${humanScore}% · reliability: ${coverage}%. ${reasons.join(' ')}`;
 }
 
 function updateAccessibleIndicator(avatar: HTMLElement, description: string) {
@@ -49,13 +52,14 @@ function updateHoverCardIndicator(avatar: HTMLElement | undefined) {
     ?.getAttribute('aria-label');
   const level = avatar?.getAttribute(INDICATOR_ATTRIBUTE) as SuspicionLevel | null | undefined;
   const score = avatar?.getAttribute(SCORE_ATTRIBUTE);
+  const coverage = avatar?.getAttribute(COVERAGE_ATTRIBUTE);
   const signalColor = avatar?.style.getPropertyValue('--taib-ai-signal-color');
 
   for (const hoverCard of document.querySelectorAll<HTMLElement>(X_SELECTORS.hoverCard)) {
     let indicator = hoverCard.querySelector<HTMLElement>(`.${HOVER_CARD_INDICATOR_CLASS}`);
     const contentRoot = hoverCard.firstElementChild;
 
-    if (!description || !level || !score || !(contentRoot instanceof HTMLElement)) {
+    if (!description || !level || !score || !coverage || !(contentRoot instanceof HTMLElement)) {
       indicator?.remove();
       continue;
     }
@@ -80,7 +84,7 @@ function updateHoverCardIndicator(avatar: HTMLElement | undefined) {
     }
 
     const text = indicator.querySelector<HTMLElement>('.taib-ai-hover-card-text');
-    const shortDescription = `Human-likeness signal: ${score}/100`;
+    const shortDescription = `Human-likeness: ${score}% · reliability: ${coverage}%`;
     if (text && text.textContent !== shortDescription) {
       text.textContent = shortDescription;
     }
@@ -138,6 +142,13 @@ function addIndicator(tweet: HTMLElement, observedTweets: WeakSet<HTMLElement>) 
       evidence.publishedAt,
       result,
       evidence.probableSpam,
+      {
+        linkDomains: evidence.linkDomains,
+        mentionCount: evidence.mentionCount,
+        hasMedia: evidence.hasMedia,
+        kind: evidence.kind,
+        language: evidence.language,
+      },
     );
 
     if (observation) {
@@ -166,7 +177,9 @@ export function createTweetIndicatorLayer() {
   let observer: MutationObserver | undefined;
   let activeAvatar: HTMLElement | undefined;
   let clearActiveAvatarTimer: number | undefined;
+  let profileContextScanTimer: number | undefined;
   const observedTweets = new WeakSet<HTMLElement>();
+  const observedProfileSnapshots = new Map<string, string>();
 
   const keepActiveAvatar = () => {
     if (clearActiveAvatarTimer !== undefined) {
@@ -193,20 +206,62 @@ export function createTweetIndicatorLayer() {
       keepActiveAvatar();
       activeAvatar = avatar;
       updateHoverCardIndicator(activeAvatar);
+      scheduleProfileContextScan();
       return;
     }
 
     if (event.target.closest(X_SELECTORS.hoverCard)) {
       keepActiveAvatar();
+      scheduleProfileContextScan();
       return;
     }
 
     clearActiveAvatarAfterDelay();
   };
 
+  const observeProfileEvidence = (evidence: ReturnType<typeof extractRenderedProfileCard>) => {
+    if (!evidence) return;
+
+    const snapshotKey = JSON.stringify(evidence.profile);
+    if (observedProfileSnapshots.get(evidence.accountKey) === snapshotKey) return;
+
+    observedProfileSnapshots.set(evidence.accountKey, snapshotKey);
+    const message: UpdateProfileMessage = {
+      type: 'x-ai-signal:update-profile',
+      accountKey: evidence.accountKey,
+      profile: evidence.profile,
+    };
+
+    void browser.runtime
+      .sendMessage(message)
+      .then((response: UpdateProfileResponse | undefined) => {
+        if (response) updateAccountIndicators(evidence.accountKey, response.score);
+      })
+      .catch(() => undefined);
+  };
+
+  const observeVisibleProfileContexts = () => {
+    for (const hoverCard of document.querySelectorAll<HTMLElement>(X_SELECTORS.hoverCard)) {
+      observeProfileEvidence(extractRenderedProfileCard(hoverCard));
+    }
+
+    const profilePage = extractRenderedProfilePage(document);
+    observeProfileEvidence(profilePage);
+  };
+
+  const scheduleProfileContextScan = () => {
+    if (profileContextScanTimer !== undefined) return;
+
+    profileContextScanTimer = window.setTimeout(() => {
+      profileContextScanTimer = undefined;
+      observeVisibleProfileContexts();
+    }, 150);
+  };
+
   return {
     start() {
       scan(document, observedTweets);
+      observeVisibleProfileContexts();
       document.addEventListener('pointerover', handlePointerOver, true);
       document.addEventListener('focusin', handlePointerOver, true);
 
@@ -223,6 +278,7 @@ export function createTweetIndicatorLayer() {
         }
 
         updateHoverCardIndicator(activeAvatar);
+        scheduleProfileContextScan();
       });
 
       observer.observe(document.documentElement, { childList: true, subtree: true });
@@ -231,6 +287,10 @@ export function createTweetIndicatorLayer() {
       observer?.disconnect();
       observer = undefined;
       keepActiveAvatar();
+      if (profileContextScanTimer !== undefined) {
+        window.clearTimeout(profileContextScanTimer);
+        profileContextScanTimer = undefined;
+      }
       activeAvatar = undefined;
       document.removeEventListener('pointerover', handlePointerOver, true);
       document.removeEventListener('focusin', handlePointerOver, true);

@@ -9,7 +9,7 @@ function interpolate(start: readonly number[], end: readonly number[], ratio: nu
 }
 
 export function coverageOpacity(coverage: number): number {
-  return Math.min(1, Math.max(0, coverage) / 50);
+  return Math.min(1, Math.max(0, coverage) / 100);
 }
 
 export function humanScoreColor(score: number, opacity = 1): string {

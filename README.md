@@ -1,53 +1,114 @@
 # X AI Signal
 
-Read-only browser extension experiment that adds an AI-writing suspicion indicator beside visible X/Twitter posts. It does not hide posts or perform account actions.
+Read-only browser extension that adds a local human-likeness signal to visible X/Twitter posts. It does not hide posts, click controls, block accounts, call private X endpoints, or send tweet/account data to a server.
 
-## Goal
+The extension is built for the current safer product direction: help the user notice suspicious reply/account behavior, then let the user decide what to do.
 
-The first milestone adds one gray border around the profile picture on every visible tweet and reply. Later milestones can color it from green to red using explainable, local signals.
+## What the score means
 
-- Gray: not scored or insufficient information.
-- Green: few suspicious writing signals.
-- Amber: mixed signals.
-- Red: several suspicious writing signals.
+Each visible avatar can show a border from red to yellow to green:
 
-Colors express suspicion, not proof of human or AI authorship. The user decides what to do with the information.
+- `0%`: observed evidence looks strongly machine-like or spam-like.
+- `50%`: neutral or insufficient evidence.
+- `100%`: observed evidence looks strongly human-compatible.
 
-## Current Recommendation
+This is not a certainty score. The extension never claims that an account is confirmed AI or confirmed human.
 
-Use a Manifest V3 WebExtension built with WXT.
+The border opacity comes from evidence reliability:
 
-Why:
+- `0%` reliability: no visible border.
+- `20%` reliability: weak early evidence.
+- `50%` reliability: half-opacity border.
+- `100%` reliability: fully opaque border.
 
-- One TypeScript codebase can target Chrome and Firefox.
-- WXT gives fast local extension reloads and browser-specific builds.
-- Content scripts can inspect the X page and inject the review buffer UI.
-- Background service workers can later handle storage, OAuth, and API calls.
-- Permissions can stay narrow to `x.com` and `twitter.com`.
+Reliability grows as the browser observes more useful evidence for the same handle.
 
-## Constraints
+## Current scoring inputs
 
-X/Twitter does not provide a stable public DOM contract. Reading visible replies from the page is practical for an extension prototype, but it will be selector-fragile.
+The score is local-first and account-based. When the same handle appears multiple times, the extension stores bounded derived evidence and updates every visible avatar for that handle to the same account score.
 
-Automatic blocking is the riskiest part:
+Currently used signals:
 
-- UI-click automation is fragile and may be interpreted as suspicious account automation.
-- The official X API exposes block endpoints, but requires developer access, OAuth, and compliance with X policy.
-- The safer path is human-confirmed blocking first, then an explicit opt-in automatic mode only after rate limits, audit logs, and policy review exist.
+- Content-only writing baseline:
+  - too little text returns neutral `50%` with zero reliability;
+  - formulaic phrases, strongly structured lists, and repeated contrast framing lower the score;
+  - absence of configured writing-pattern signals gives a small positive baseline.
+- X probable-spam context:
+  - replies rendered after X's “Show probable spam” control receive a bounded penalty;
+  - this is treated as useful context, not proof.
+- Exact repetition:
+  - repeated normalized text hashes from the same account lower the score;
+  - raw tweet text is not stored.
+- Near-duplicate repetition:
+  - 64-bit character n-gram SimHash catches lightly edited repeated templates from the same account;
+  - only the account's capped recent local history is compared.
+- Repeated external link domains:
+  - repeatedly sharing the same external domain adds a small penalty.
+- Repeated shape of behavior:
+  - very similar text lengths across enough recent posts lower the score;
+  - varied text lengths add a small human-compatible signal;
+  - unusually high mention density lowers the score.
+- Media mix:
+  - some media posts add a weak human-compatible signal;
+  - this is intentionally small because media can also be automated.
+- Rendered profile-card context:
+  - follower count;
+  - following count;
+  - common follows / “others you follow” count;
+  - “follows you” / mutual-follow labels when rendered;
+  - verification icon when rendered.
+- Lightweight extracted context:
+  - post ID and timestamp when rendered;
+  - text length;
+  - link domains;
+  - mention count;
+  - media presence;
+  - language when rendered;
+  - simple post kind when detectable.
 
-See [resources/research.md](resources/RESEARCH.md) for source links and implementation notes.
+Stored account history is capped at 50 recent post signatures or 30 days.
 
-## Project Structure
+The account formula is continuous. It starts from weighted observed-post scores, then applies bounded positive and negative adjustments. This allows scores like `92%`, `67%`, or `14%` instead of only fixed buckets. Reliability controls how strongly that score should be trusted visually.
+
+## What is not used yet
+
+Not implemented yet:
+
+- profile-page follower/following enrichment beyond the current rendered DOM snapshot;
+- account age;
+- conversation-aware relevance to parent posts;
+- temporal activity patterns;
+- cross-account coordination;
+- remote classifiers or shared reputation lists.
+
+These are planned only if they can stay local, explainable, and low-risk for the user's account.
+
+## Privacy and safety boundary
+
+By default, the extension stores only derived local evidence in `browser.storage.local`. It does not store full tweet text and does not send tweet content, handles, or account metadata to third parties.
+
+The popup shows local storage usage, account count, observation count, retention policy, and a confirmed “Delete all local evidence” control.
+
+## Architecture
+
+- Framework: WXT.
+- Browser targets: Chromium/Chrome/Brave and Firefox.
+- Manifest: MV3 for Chromium, WXT-generated Firefox target.
+- Content script: reads rendered X DOM and injects read-only avatar/hover-card UI.
+- Background worker: owns local account evidence, batching, migration, corrupt-record recovery, and popup messages.
+- Popup: storage summary and delete-local-evidence control.
+
+## Project structure
 
 ```text
 .
-├── resources/            # Research notes, policies, experiments, screenshots
+├── resources/            # Research notes, policy notes, fixtures, TODOs
 ├── src/
-│   ├── entrypoints/      # WXT extension entrypoints: content script, background, popup
-│   ├── content/          # DOM scanning and X page integration
-│   ├── scoring/          # Human-confidence scoring
-│   ├── ui/               # Injected page UI and extension popup styling
-│   └── types.ts
+│   ├── entrypoints/      # WXT content, background, and popup entrypoints
+│   ├── content/          # X DOM extraction and injected indicator layer
+│   ├── scoring/          # Content and account scoring
+│   └── ui/               # Injected CSS and UI helpers
+├── tests/                # Node test suite
 ├── AGENTS.md             # Working instructions for future coding agents
 ├── README.md
 ├── package.json
@@ -55,7 +116,7 @@ See [resources/research.md](resources/RESEARCH.md) for source links and implemen
 └── wxt.config.ts
 ```
 
-## Local Development
+## Local development
 
 Install dependencies:
 
@@ -100,21 +161,12 @@ pnpm build:firefox
 
 WXT writes browser-specific output under the visible `extension-builds/` directory. Git ignores this generated directory.
 
-Verify checks and both production builds:
+Run tests and production builds:
 
 ```bash
 pnpm verify
 ```
 
-## First Milestones
+## Current roadmap
 
-1. Add exactly one gray profile-picture border to every visible tweet and reply.
-2. Extract the tweet's own rendered text and visible author information.
-3. Add a small deterministic suspicion score with visible reasons.
-4. Verify the same read-only behavior in Chromium and Firefox.
-
-## Open Questions
-
-- Should unsupported languages remain gray until they have their own evaluated signals?
-- Which rendered account fields are stable enough to use without visiting profiles or calling X endpoints?
-- Should the first colored score use a number, four bands, or only the color and reasons?
+See [resources/TODO.md](resources/TODO.md) for the development checklist and phase gates. See [resources/research.md](resources/research.md) for research notes on AI text detection, bot behavior, local scoring, and future shared-learning risks.

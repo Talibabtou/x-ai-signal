@@ -28,6 +28,11 @@ test('extracts rendered tweet and author evidence', () => {
     postId: '123456789',
     publishedAt: Date.parse('2026-07-05T10:30:00.000Z'),
     probableSpam: false,
+    linkDomains: [],
+    mentionCount: 0,
+    hasMedia: false,
+    kind: 'unknown',
+    language: 'en',
   });
 });
 
@@ -48,6 +53,15 @@ test('does not mix quoted text into the post body', () => {
 
 test('recognizes promoted content from its rendered wrapper', () => {
   assert.equal(extractRenderedTweet(fixture('promoted')).promoted, true);
+});
+
+test('extracts lightweight behavior features without storing text', () => {
+  const evidence = extractRenderedTweet(fixture('behavior-features'));
+
+  assert.deepEqual(evidence.linkDomains, ['example.com']);
+  assert.equal(evidence.mentionCount, 1);
+  assert.equal(evidence.hasMedia, true);
+  assert.equal(evidence.language, 'en');
 });
 
 test('recognizes replies rendered after X probable-spam control', () => {

@@ -43,9 +43,9 @@ Gate: every colored indicator can explain itself, while short or unsupported tex
 
 ## Phase 3: local evolving account score
 
-The account score has two outputs: a 0–100 human-likeness signal and 0–100 evidence coverage.
+The account score has two outputs: a 0–100 human-likeness signal and 0–100 evidence reliability.
 `0` means the observed evidence looks strongly machine-like, `100` means it looks strongly
-human-compatible, and neither endpoint is a certainty claim. More observations improve coverage;
+human-compatible, and neither endpoint is a certainty claim. More observations improve reliability;
 they do not automatically move the human-likeness signal. Keep the algorithm deterministic until
 replay tests show that a trained model materially reduces errors.
 
@@ -67,11 +67,12 @@ storage quota.
 
 ### 3B: cheap incremental behavior features
 
-- [ ] Freeze the Phase 2 content scorer as a weak, capped evidence family.
-- [ ] Add normalized exact hashes per account and detect copies across distinct posts.
-- [ ] Add 64-bit character n-gram SimHash and compare only against that account's bounded recent signatures.
-- [ ] Record post kind, published and observed timestamps, conversation ID when rendered, link domains, mention count, language, text length, media presence, and whether the visible reply has a usable parent context.
-- [ ] Maintain online aggregates without rescanning history: distinct conversations, duplicate counts, post-kind counts, link-domain counts, active-hour bins, gap bins, and text-length mean and variance.
+- [x] Freeze the Phase 2 content scorer as a weak, capped evidence family.
+- [x] Add normalized exact hashes per account and detect copies across distinct posts.
+- [x] Add 64-bit character n-gram SimHash and compare only against that account's bounded recent signatures.
+- [x] Record rendered behavior features: post ID, timestamp, link domains, mention count, language, text length, media presence, and simple post kind when detectable.
+- [x] Maintain online aggregate signals without storing raw text: exact duplicates, near duplicates, repeated link domains, media count, mention total, and text-length mean/variance.
+- [ ] Add conversation ID, visible parent context, active-hour bins, and gap bins after extraction fixtures exist.
 - [ ] Do not compare timing until at least 8 timestamped posts span 6 hours; represent the result as sampled observations, not a complete posting rate.
 - [ ] Extract human-compatible observations without calling them proof: short fragments, varied style, corrections, parent-specific replies, reciprocal conversation, media variety, and irregular activity sessions.
 - [ ] Treat one-word and media-only posts as insufficient for text scoring rather than automatic low suspicion.
@@ -87,13 +88,13 @@ same-account similarity check; no feature can infer a negative value from missin
 - [x] Give the content-only baseline a bounded 0–100 human-likeness signal and separate coverage; use neutral `50` with zero coverage when content cannot be scored.
 - [x] Map avatar borders continuously from red at `0`, through yellow at `50`, to green at `100`.
 - [x] Recompute one score per normalized handle after every stored observation and update every visible avatar for that account.
-- [x] Map `0–50` evidence coverage to transparent-through-opaque avatar borders while keeping score color independent.
+- [x] Map `0–100` evidence reliability to transparent-through-opaque avatar borders while keeping score color independent.
 - [ ] Implement pure family scorers for content, repetition, temporal behavior, conversation behavior, account context, and relationship context.
 - [ ] Let every family contain raising evidence and family-specific counterevidence; do not build one global pool of “human points.”
 - [ ] Allow counterevidence to reduce only the family it contradicts: spelling variation affects content, varied replies affect repetition/conversation, and varied gaps affect temporal evidence.
 - [ ] Cap every lowering effect so typos, slang, media, or irregular delays cannot erase strong evidence from another family.
 - [ ] Give content and profile metadata low maximum influence; neither can produce high suspicion alone.
-- [ ] Calculate coverage from eligible post count, distinct conversations, elapsed time, available profile context, and independent evidence families.
+- [ ] Calculate reliability from eligible post count, distinct conversations, elapsed time, available profile context, and independent evidence families.
 - [ ] Keep insufficient evidence `unknown`, even when one weak family produces a high raw score.
 - [ ] Require one strong behavioral signal or independent medium signals for `medium`.
 - [ ] Require at least two independent families, including behavior, for `high`.
@@ -109,11 +110,13 @@ human-like features cannot conceal independent behavioral evidence.
 
 ### 3D: user-opened profile enrichment
 
-- [ ] Extract a profile snapshot only after the user naturally opens a rendered hover card or profile page.
-- [ ] Parse follower/following counts with locale-aware fixtures and preserve `unknown` on a failed parse.
-- [ ] Record snapshot time, visible relationship, common-follow count, verification, bio/link presence, and account age only when rendered.
-- [ ] Never replace a known field with a missing field from a smaller card variant.
-- [ ] Cap profile and relationship influence and make every adjustment visible in score reasons.
+- [x] Extract a profile snapshot after the user naturally opens a rendered hover card.
+- [x] Extract profile-page snapshots when the user naturally navigates to a profile page.
+- [x] Parse follower/following counts with locale-aware fixtures and preserve `unknown` on a failed parse.
+- [x] Record snapshot time, visible relationship, common-follow count, and verification when rendered.
+- [ ] Record bio/link presence and account age only when rendered.
+- [x] Never replace a known field with a missing field from a smaller card variant.
+- [x] Cap profile and relationship influence and make profile adjustment visible in score reasons.
 - [ ] Test card variants, SPA navigation, repeated hovering, and stale snapshots in Brave and Firefox.
 
 Gate: profile context can refine an existing score but cannot independently create medium or

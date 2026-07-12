@@ -15,4 +15,6 @@ export const X_SELECTORS = {
   verifiedIcon: '[data-testid="icon-verified"]',
   // Timeline placement wrapper used for promoted content.
   promotedContainer: '[data-testid="placementTracking"]',
+  // Common rendered media containers inside posts.
+  media: '[data-testid="tweetPhoto"], [data-testid="videoPlayer"], [data-testid="videoComponent"]',
 } as const;

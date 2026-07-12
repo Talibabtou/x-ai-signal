@@ -11,6 +11,11 @@ export type RenderedTweetEvidence = {
   postId: string | null;
   publishedAt: number | null;
   probableSpam: boolean;
+  linkDomains: string[];
+  mentionCount: number;
+  hasMedia: boolean;
+  kind: 'post' | 'reply' | 'quote' | 'repost' | 'unknown';
+  language: string | null;
 };
 
 const HANDLE_PATTERN = /^@[A-Za-z0-9_]{1,15}$/;
@@ -37,6 +42,36 @@ function extractOwnText(tweet: Element): string | null {
   }
 
   return null;
+}
+
+function extractLinkDomains(tweet: Element): string[] {
+  const domains = new Set<string>();
+
+  for (const link of tweet.querySelectorAll<HTMLAnchorElement>('a[href]')) {
+    if (link.closest(X_SELECTORS.quote) || link.closest(X_SELECTORS.author)) continue;
+    const href = link.getAttribute('href');
+    if (!href) continue;
+
+    try {
+      const url = new URL(href, 'https://x.com');
+      if (['x.com', 'twitter.com'].includes(url.hostname)) continue;
+      domains.add(url.hostname.replace(/^www\./, '').toLowerCase());
+    } catch {
+      // Ignore malformed rendered links.
+    }
+  }
+
+  return [...domains].sort();
+}
+
+function extractMentionCount(text: string | null): number {
+  return Array.from(text?.matchAll(/(^|\s)@[A-Za-z0-9_]{1,15}\b/g) ?? []).length;
+}
+
+function extractLanguage(tweet: Element): string | null {
+  const textNode = tweet.querySelector(X_SELECTORS.tweetText);
+  const language = textNode?.closest('[lang]')?.getAttribute('lang');
+  return language || null;
 }
 
 function extractPostIdentity(tweet: Element): {
@@ -126,6 +161,11 @@ export function extractRenderedTweet(tweet: Element): RenderedTweetEvidence {
     relationshipLabel: extractRelationshipLabel(author),
     promoted: Boolean(tweet.closest(X_SELECTORS.promotedContainer)),
     probableSpam: isInProbableSpamSection(tweet),
+    linkDomains: extractLinkDomains(tweet),
+    mentionCount: extractMentionCount(text),
+    hasMedia: Boolean(tweet.querySelector(X_SELECTORS.media)),
+    kind: tweet.querySelector(X_SELECTORS.quote) ? 'quote' : 'unknown',
+    language: extractLanguage(tweet),
     ...identity,
   };
 }
