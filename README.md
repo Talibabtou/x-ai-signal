@@ -54,6 +54,7 @@ Currently used signals:
 - Rendered profile-card context:
   - follower count;
   - following count;
+  - follower/following ratio as weak activity context;
   - common follows / “others you follow” count;
   - “follows you” / mutual-follow labels when rendered;
   - verification icon when rendered.
@@ -64,7 +65,12 @@ Currently used signals:
   - mention count;
   - media presence;
   - language when rendered;
-  - simple post kind when detectable.
+  - simple post kind when detectable;
+  - rendered conversation ID when safely available;
+  - visible parent/reply context;
+  - active-hour and post-gap bins from rendered timestamps.
+
+Follower/following ratio helps identify weak social-account context, such as mass-following with very low follower count, but it is capped because popularity is not proof of being human. Post/reply ratio helps distinguish contextual conversation from concentrated reply broadcasting; it only matters with enough locally observed posts and rendered conversation context.
 
 Stored account history is capped at 50 recent post signatures or 30 days.
 
@@ -76,8 +82,8 @@ Not implemented yet:
 
 - profile-page follower/following enrichment beyond the current rendered DOM snapshot;
 - account age;
-- conversation-aware relevance to parent posts;
 - temporal activity patterns;
+- conversation-aware relevance to parent posts beyond visible rendered context;
 - cross-account coordination;
 - remote classifiers or shared reputation lists.
 

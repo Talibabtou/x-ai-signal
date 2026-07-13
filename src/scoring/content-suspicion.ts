@@ -86,7 +86,7 @@ export function scoreContentSuspicion(
       reasons.push('No configured writing-pattern signals were found.');
     }
 
-    humanScore = Math.max(10, 70 - points * 15);
+    humanScore = points === 0 ? 58 : Math.max(10, 58 - points * 15);
     coverage = 20;
   }
 

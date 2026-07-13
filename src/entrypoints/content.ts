@@ -7,6 +7,7 @@ export default defineContentScript({
   main(ctx) {
     const indicators = createTweetIndicatorLayer();
     indicators.start();
+    ctx.addEventListener(window, 'wxt:locationchange', indicators.rescan);
     ctx.onInvalidated(indicators.stop);
   },
 });

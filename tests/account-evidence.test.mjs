@@ -56,6 +56,7 @@ test('creates a sanitized versioned observation', () => {
   assert.ok(observation);
   assert.equal(observation.accountKey, '@alice');
   assert.equal(observation.postId, '123');
+  assert.equal(observation.activeHour, 22);
   assert.equal('text' in observation, false);
   assert.equal(isPostObservationV1(observation), true);
 });
@@ -129,7 +130,7 @@ test('produces one evolving score for an account', () => {
   const secondAccount = mergePostObservation(firstAccount, second, 2_000).account;
   const secondScore = scoreAccountEvidence(secondAccount);
 
-  assert.equal(firstScore.humanScore, 70);
+  assert.equal(firstScore.humanScore, 68);
   assert.equal(firstScore.coverage, 20);
   assert.equal(secondScore.humanScore, 60);
   assert.equal(secondScore.coverage, 30);
@@ -254,6 +255,219 @@ test('can score a locally bad behavioral pattern below 50', () => {
   assert.ok(score.coverage >= 50);
 });
 
+test('does not inflate neutral observations into a high human score', () => {
+  let account = null;
+  for (let index = 1; index <= 8; index += 1) {
+    const observation = createPostObservation(
+      '@neutralacct',
+      [
+        'A regular update about a project status and a small scheduling change.',
+        'Another note shares a general thought without much account-specific context.',
+        'The reply points to a simple observation and avoids repeated wording.',
+        'A short explanation describes why the previous message needed clarification.',
+        'The account adds another ordinary sentence about work and timing.',
+        'One more update mentions a topic without links or repeated phrases.',
+        'A neutral post gives a basic response to a rendered conversation.',
+        'The last sample is varied enough but still lacks strong positive evidence.',
+      ][index - 1],
+      `neutral-${index}`,
+      1_700_000_000_000 + index * 60 * 60 * 1000,
+      contentResult,
+      false,
+      {
+        kind: 'reply',
+        conversationId: `conversation-${index}`,
+        hasVisibleParentContext: true,
+      },
+      1_700_000_000_000 + index * 60 * 60 * 1000,
+    );
+    assert.ok(observation);
+    account = mergePostObservation(account, observation, observation.observedAt).account;
+  }
+
+  const profileResult = mergeProfileSnapshot(
+    account,
+    '@neutralacct',
+    {
+      schemaVersion: 1,
+      observedAt: 1_700_000_000_000,
+      followers: 2_000,
+      following: 1_500,
+      commonFollows: null,
+      relationshipLabel: null,
+      verified: false,
+    },
+    '@neutralacct',
+    1_700_000_000_000,
+  );
+  assert.ok(profileResult);
+  const score = scoreAccountEvidence(profileResult.account);
+
+  assert.ok(score.humanScore < 80);
+});
+
+test('tracks rendered conversation and reply activity as bounded context', () => {
+  let account = null;
+  const texts = [
+    'I tried the same setting yesterday and the modal stayed open.',
+    'That recipe works better when the pan is already warm.',
+    'The train delay cleared before the evening commute started.',
+    'Your screenshot shows the old button label near the toolbar.',
+    'I found the venue entrance on the north side of the block.',
+  ];
+  for (let index = 1; index <= 5; index += 1) {
+    const observation = createPostObservation(
+      '@alice',
+      texts[index - 1],
+      `reply-${index}`,
+      1_700_000_000_000 + index * 60 * 60 * 1000,
+      contentResult,
+      false,
+      {
+        kind: 'reply',
+        conversationId: `conversation-${index}`,
+        hasVisibleParentContext: true,
+      },
+      1_700_000_000_000 + index * 60 * 60 * 1000,
+    );
+    assert.ok(observation);
+    account = mergePostObservation(account, observation, observation.observedAt).account;
+  }
+
+  const score = scoreAccountEvidence(account);
+
+  assert.equal(account.aggregates.replyCount, 5);
+  assert.equal(account.aggregates.distinctConversationCount, 5);
+  assert.equal(account.aggregates.visibleParentContextCount, 5);
+  assert.equal(score.humanScore, 63);
+  assert.ok(score.reasons.some((reason) => reason.includes('multiple rendered conversations')));
+  assert.ok(score.gauges.some((gauge) => gauge.id === 'reply-mix'));
+});
+
+test('penalizes reply broadcasting concentrated in few rendered conversations', () => {
+  let account = null;
+  const texts = [
+    'The account keeps entering this discussion without new context.',
+    'A second reply appears in the same rendered thread sample.',
+    'Another short answer lands under the same visible exchange.',
+    'The fourth reply still stays inside the first conversation.',
+    'A separate conversation receives the same account behavior.',
+    'The next note remains concentrated in that second exchange.',
+    'One more reply continues the narrow conversation pattern.',
+    'The final observed reply does not broaden the local sample.',
+  ];
+  for (let index = 1; index <= 8; index += 1) {
+    const observation = createPostObservation(
+      '@alice',
+      texts[index - 1],
+      `broadcast-${index}`,
+      1_700_000_000_000 + index * 60 * 60 * 1000,
+      contentResult,
+      false,
+      {
+        kind: 'reply',
+        conversationId: index <= 4 ? 'conversation-a' : 'conversation-b',
+        hasVisibleParentContext: true,
+      },
+      1_700_000_000_000 + index * 60 * 60 * 1000,
+    );
+    assert.ok(observation);
+    account = mergePostObservation(account, observation, observation.observedAt).account;
+  }
+
+  const score = scoreAccountEvidence(account);
+
+  assert.equal(account.aggregates.replyCount, 8);
+  assert.equal(account.aggregates.distinctConversationCount, 2);
+  assert.equal(score.humanScore, 50);
+  assert.ok(score.reasons.some((reason) => reason.includes('concentrated')));
+});
+
+test('gates timing signals until enough timestamped posts span six hours', () => {
+  let account = null;
+  const texts = [
+    'The first timestamped note is about a build setting.',
+    'A lunch plan changed after the weather report arrived.',
+    'The dashboard screenshot uses a different account filter.',
+    'I moved the charger from the desk to the travel bag.',
+    'That bookstore closes earlier on Sunday evenings.',
+    'The profile card rendered after the second pointer hover.',
+    'A small CSS fix made the avatar border visible again.',
+  ];
+  for (let index = 1; index <= 7; index += 1) {
+    const observation = createPostObservation(
+      '@alice',
+      texts[index - 1],
+      `timing-small-${index}`,
+      1_700_000_000_000 + index * 60_000,
+      contentResult,
+      false,
+      { kind: 'post' },
+      1_700_000_000_000 + index * 60_000,
+    );
+    assert.ok(observation);
+    account = mergePostObservation(account, observation, observation.observedAt).account;
+  }
+
+  const score = scoreAccountEvidence(account);
+
+  assert.equal(account.aggregates.timestampedPostCount, 7);
+  assert.equal(account.aggregates.gapBins.underFiveMinutes, 6);
+  assert.equal(score.humanScore, 58);
+  assert.equal(
+    score.reasons.some((reason) => reason.includes('posting gaps')),
+    false,
+  );
+});
+
+test('uses sampled timing gaps only after the configured timing gate', () => {
+  let account = null;
+  const start = 1_700_000_000_000;
+  const texts = [
+    'The first gated timing sample mentions a calendar export.',
+    'Another note compares two separate browser windows.',
+    'This update talks about a train platform change.',
+    'A later sample records a bookmark folder cleanup.',
+    'The fifth observation mentions a quiet profile page.',
+    'Another timestamped post describes a local fixture.',
+    'The afternoon item talks about a different recipe test.',
+    'The evening note covers a keyboard shortcut mismatch.',
+  ];
+  const offsets = [
+    0,
+    60_000,
+    120_000,
+    180_000,
+    240_000,
+    300_000,
+    12 * 60 * 60_000,
+    13 * 60 * 60_000,
+  ];
+  for (const [index, offset] of offsets.entries()) {
+    const observation = createPostObservation(
+      '@alice',
+      texts[index],
+      `timing-gated-${index}`,
+      start + offset,
+      contentResult,
+      false,
+      { kind: 'post' },
+      start + offset,
+    );
+    assert.ok(observation);
+    account = mergePostObservation(account, observation, observation.observedAt).account;
+  }
+
+  const score = scoreAccountEvidence(account);
+
+  assert.equal(account.aggregates.timestampedPostCount, 8);
+  assert.equal(account.aggregates.timestampedSpanMs, 13 * 60 * 60_000);
+  assert.equal(account.aggregates.gapBins.underFiveMinutes, 5);
+  assert.equal(score.humanScore, 48);
+  assert.ok(score.reasons.some((reason) => reason.includes('posting gaps')));
+  assert.ok(score.gauges.some((gauge) => gauge.id === 'timing'));
+});
+
 test('migrates legacy account records without a probable-spam field', () => {
   const observation = createPostObservation(
     '@alice',
@@ -275,6 +489,9 @@ test('migrates legacy account records without a probable-spam field', () => {
   delete legacy.recentPosts[0].hasMedia;
   delete legacy.recentPosts[0].kind;
   delete legacy.recentPosts[0].language;
+  delete legacy.recentPosts[0].conversationId;
+  delete legacy.recentPosts[0].hasVisibleParentContext;
+  delete legacy.recentPosts[0].activeHour;
   delete legacy.aggregates;
 
   const migrated = migrateAccountEvidence(legacy);
@@ -288,6 +505,21 @@ test('migrates legacy account records without a probable-spam field', () => {
     repeatedLinkDomainCount: 0,
     mediaPostCount: 0,
     mentionTotal: 0,
+    distinctConversationCount: 0,
+    visibleParentContextCount: 0,
+    postCount: 0,
+    replyCount: 0,
+    quoteCount: 0,
+    repostCount: 0,
+    activeHourBins: Array.from({ length: 24 }, () => 0),
+    gapBins: {
+      underFiveMinutes: 0,
+      fiveMinutesToOneHour: 0,
+      oneHourToSixHours: 0,
+      overSixHours: 0,
+    },
+    timestampedPostCount: 0,
+    timestampedSpanMs: 0,
     textLengthMean: 59,
     textLengthStdDev: 0,
   });
@@ -311,6 +543,29 @@ test('uses rendered profile-card context as a bounded account signal', () => {
 
   assert.equal(score.humanScore, 70);
   assert.equal(score.coverage, 30);
+  assert.ok(score.gauges.some((gauge) => gauge.id === 'follower-ratio'));
+  assert.ok(score.gauges.some((gauge) => gauge.id === 'common-follows'));
+});
+
+test('scores a large asymmetric follower ratio as strong profile context', () => {
+  const profile = {
+    schemaVersion: 1,
+    observedAt: 2_000,
+    followers: 1_100_000,
+    following: 9_162,
+    commonFollows: 430,
+    relationshipLabel: null,
+    verified: false,
+  };
+  const result = mergeProfileSnapshot(null, '@largeacct', profile, '@largeacct', 2_000);
+
+  assert.ok(result);
+  const score = scoreAccountEvidence(result.account);
+  const followerRatio = score.gauges.find((gauge) => gauge.id === 'follower-ratio');
+
+  assert.ok(followerRatio);
+  assert.equal(followerRatio.value, 90);
+  assert.ok(followerRatio.detail.includes('120.1:1'));
 });
 
 test('does not erase known profile fields with missing card fields', () => {

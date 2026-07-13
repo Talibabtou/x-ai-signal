@@ -19,6 +19,9 @@ export type PostObservationV1 = {
   hasMedia: boolean;
   kind: 'post' | 'reply' | 'quote' | 'repost' | 'unknown';
   language: string | null;
+  conversationId: string | null;
+  hasVisibleParentContext: boolean;
+  activeHour: number | null;
   contentHumanScore: number;
   contentCoverage: number;
   contentLevel: SuspicionLevel;
@@ -58,8 +61,25 @@ export type AccountAggregatesV1 = {
   repeatedLinkDomainCount: number;
   mediaPostCount: number;
   mentionTotal: number;
+  distinctConversationCount: number;
+  visibleParentContextCount: number;
+  postCount: number;
+  replyCount: number;
+  quoteCount: number;
+  repostCount: number;
+  activeHourBins: number[];
+  gapBins: GapBinsV1;
+  timestampedPostCount: number;
+  timestampedSpanMs: number;
   textLengthMean: number;
   textLengthStdDev: number;
+};
+
+export type GapBinsV1 = {
+  underFiveMinutes: number;
+  fiveMinutesToOneHour: number;
+  oneHourToSixHours: number;
+  overSixHours: number;
 };
 
 export type AccountScoreV1 = {
@@ -68,7 +88,15 @@ export type AccountScoreV1 = {
   coverage: number;
   level: SuspicionLevel;
   reasons: string[];
+  gauges: AccountScoreGaugeV1[];
   observationCount: number;
+};
+
+export type AccountScoreGaugeV1 = {
+  id: string;
+  label: string;
+  value: number;
+  detail: string;
 };
 
 export type ObservePostMessage = {
@@ -184,6 +212,9 @@ export type PostObservationContext = {
   hasMedia?: boolean;
   kind?: PostObservationV1['kind'];
   language?: string | null;
+  conversationId?: string | null;
+  hasVisibleParentContext?: boolean;
+  activeHour?: number | null;
 };
 
 export function createPostObservation(
@@ -217,6 +248,9 @@ export function createPostObservation(
     hasMedia: context.hasMedia ?? false,
     kind: context.kind ?? 'unknown',
     language: context.language ?? null,
+    conversationId: context.conversationId ?? null,
+    hasVisibleParentContext: context.hasVisibleParentContext ?? false,
+    activeHour: context.activeHour ?? activeHourFromTimestamp(publishedAt),
     contentHumanScore: result.humanScore,
     contentCoverage: result.coverage,
     contentLevel: result.level,
@@ -244,6 +278,13 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
 }
 
+function isNullableActiveHour(value: unknown): value is number | null {
+  return (
+    value === null ||
+    (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 23)
+  );
+}
+
 function isPostSignatureV1(value: unknown): value is PostSignatureV1 {
   if (!value || typeof value !== 'object') return false;
   const post = value as Partial<PostSignatureV1>;
@@ -262,6 +303,9 @@ function isPostSignatureV1(value: unknown): value is PostSignatureV1 {
     typeof post.hasMedia === 'boolean' &&
     ['post', 'reply', 'quote', 'repost', 'unknown'].includes(post.kind ?? '') &&
     isNullableString(post.language) &&
+    isNullableString(post.conversationId) &&
+    typeof post.hasVisibleParentContext === 'boolean' &&
+    isNullableActiveHour(post.activeHour) &&
     isFiniteNumber(post.contentHumanScore) &&
     post.contentHumanScore >= 0 &&
     post.contentHumanScore <= 100 &&
@@ -312,6 +356,9 @@ export function isPostObservationV1(value: unknown): value is PostObservationV1 
     typeof observation.hasMedia === 'boolean' &&
     ['post', 'reply', 'quote', 'repost', 'unknown'].includes(observation.kind ?? '') &&
     isNullableString(observation.language) &&
+    isNullableString(observation.conversationId) &&
+    typeof observation.hasVisibleParentContext === 'boolean' &&
+    isNullableActiveHour(observation.activeHour) &&
     isFiniteNumber(observation.contentHumanScore) &&
     observation.contentHumanScore >= 0 &&
     observation.contentHumanScore <= 100 &&
@@ -355,8 +402,32 @@ function isAccountAggregatesV1(value: unknown): value is AccountAggregatesV1 {
     isFiniteNumber(aggregates.repeatedLinkDomainCount) &&
     isFiniteNumber(aggregates.mediaPostCount) &&
     isFiniteNumber(aggregates.mentionTotal) &&
+    isFiniteNumber(aggregates.distinctConversationCount) &&
+    isFiniteNumber(aggregates.visibleParentContextCount) &&
+    isFiniteNumber(aggregates.postCount) &&
+    isFiniteNumber(aggregates.replyCount) &&
+    isFiniteNumber(aggregates.quoteCount) &&
+    isFiniteNumber(aggregates.repostCount) &&
+    Array.isArray(aggregates.activeHourBins) &&
+    aggregates.activeHourBins.length === 24 &&
+    aggregates.activeHourBins.every(isFiniteNumber) &&
+    isGapBinsV1(aggregates.gapBins) &&
+    isFiniteNumber(aggregates.timestampedPostCount) &&
+    isFiniteNumber(aggregates.timestampedSpanMs) &&
     isFiniteNumber(aggregates.textLengthMean) &&
     isFiniteNumber(aggregates.textLengthStdDev)
+  );
+}
+
+function isGapBinsV1(value: unknown): value is GapBinsV1 {
+  if (!value || typeof value !== 'object') return false;
+  const bins = value as Partial<GapBinsV1>;
+
+  return (
+    isFiniteNumber(bins.underFiveMinutes) &&
+    isFiniteNumber(bins.fiveMinutesToOneHour) &&
+    isFiniteNumber(bins.oneHourToSixHours) &&
+    isFiniteNumber(bins.overSixHours)
   );
 }
 
@@ -401,6 +472,18 @@ export function migrateAccountEvidence(value: unknown): AccountEvidenceV1 | null
           : false,
       kind: (post as Partial<PostSignatureV1>).kind ?? 'unknown',
       language: (post as Partial<PostSignatureV1>).language ?? null,
+      conversationId:
+        typeof (post as Partial<PostSignatureV1>).conversationId === 'string'
+          ? (post as Partial<PostSignatureV1>).conversationId
+          : null,
+      hasVisibleParentContext:
+        typeof (post as Partial<PostSignatureV1>).hasVisibleParentContext === 'boolean'
+          ? (post as Partial<PostSignatureV1>).hasVisibleParentContext
+          : false,
+      activeHour:
+        typeof (post as Partial<PostSignatureV1>).activeHour === 'number'
+          ? (post as Partial<PostSignatureV1>).activeHour
+          : activeHourFromTimestamp((post as Partial<PostSignatureV1>).publishedAt ?? null),
     };
   });
   const legacyAggregates = isAccountAggregatesV1(legacy.aggregates)
@@ -445,6 +528,9 @@ export function mergePostObservation(
     hasMedia: observation.hasMedia,
     kind: observation.kind,
     language: observation.language,
+    conversationId: observation.conversationId,
+    hasVisibleParentContext: observation.hasVisibleParentContext,
+    activeHour: observation.activeHour,
     contentHumanScore: observation.contentHumanScore,
     contentCoverage: observation.contentCoverage,
     contentLevel: observation.contentLevel,
@@ -540,6 +626,7 @@ export function scoreAccountEvidence(account: AccountEvidenceV1): AccountScoreV1
       coverage: 0,
       level: 'unknown',
       reasons: ['No scoreable account evidence has been observed yet.'],
+      gauges: [],
       observationCount: account.observationCount,
     };
   }
@@ -561,6 +648,8 @@ export function scoreAccountEvidence(account: AccountEvidenceV1): AccountScoreV1
   const mentionPenalty = mentionPatternPenalty(account);
   const textShapeAdjustment = textShapeScoreAdjustment(account);
   const mediaAdjustment = mediaScoreAdjustment(account);
+  const conversationAdjustment = conversationScoreAdjustment(account);
+  const timingAdjustment = timingScoreAdjustment(account);
   const profileAdjustment = profileScoreAdjustment(account.profile);
   const rawHumanScore =
     baseScore -
@@ -570,8 +659,11 @@ export function scoreAccountEvidence(account: AccountEvidenceV1): AccountScoreV1
     mentionPenalty +
     textShapeAdjustment +
     mediaAdjustment +
+    conversationAdjustment +
+    timingAdjustment +
     profileAdjustment;
-  const humanScore = Math.max(0, Math.min(100, Math.round(rawHumanScore)));
+  const humanScoreCap = maximumHumanScoreFromEvidence(account);
+  const humanScore = Math.max(0, Math.min(humanScoreCap, Math.round(rawHumanScore)));
   const maximumPostCoverage = Math.max(...eligiblePosts.map((post) => post.contentCoverage));
   const profileCoverage = profileCoverageContribution(account.profile);
   const coverage = Math.min(
@@ -584,6 +676,8 @@ export function scoreAccountEvidence(account: AccountEvidenceV1): AccountScoreV1
         (exactDuplicateCount > 0 ? 10 : 0) +
         (nearDuplicateCount > 0 ? 10 : 0) +
         (repeatedLinkDomainCount > 0 ? 5 : 0) +
+        (account.aggregates.distinctConversationCount >= 2 ? 5 : 0) +
+        (hasTimingSample(account) ? 10 : 0) +
         profileCoverage,
     ),
   );
@@ -607,6 +701,16 @@ export function scoreAccountEvidence(account: AccountEvidenceV1): AccountScoreV1
   if (mediaAdjustment > 0) {
     reasons.push('Some recent posts include media, a weak human-compatible signal.');
   }
+  if (conversationAdjustment < 0) {
+    reasons.push('Recent replies are concentrated in a small number of rendered conversations.');
+  } else if (conversationAdjustment > 0) {
+    reasons.push('Recent replies span multiple rendered conversations with visible context.');
+  }
+  if (timingAdjustment < 0) {
+    reasons.push('Sampled timestamped posts include unusually tight posting gaps.');
+  } else if (timingAdjustment > 0) {
+    reasons.push('Sampled timestamped posts show varied activity gaps.');
+  }
   if (textShapeAdjustment < 0) {
     reasons.push('Recent posts have unusually similar text lengths.');
   } else if (textShapeAdjustment > 0) {
@@ -615,6 +719,11 @@ export function scoreAccountEvidence(account: AccountEvidenceV1): AccountScoreV1
   if (profileAdjustment !== 0) {
     reasons.push('Rendered profile-card context affected the account score.');
   }
+  if (humanScore < Math.round(rawHumanScore)) {
+    reasons.push(
+      'The score was capped because high confidence requires stronger positive evidence.',
+    );
+  }
 
   return {
     schemaVersion: ACCOUNT_EVIDENCE_SCHEMA_VERSION,
@@ -622,6 +731,7 @@ export function scoreAccountEvidence(account: AccountEvidenceV1): AccountScoreV1
     coverage,
     level: levelForAccountScore(humanScore, coverage),
     reasons,
+    gauges: scoreGauges(account, humanScore, coverage),
     observationCount: account.observationCount,
   };
 }
@@ -639,8 +749,235 @@ function scoreProfileOnly(account: AccountEvidenceV1): AccountScoreV1 | null {
     coverage,
     level: levelForAccountScore(humanScore, coverage),
     reasons: ['Only rendered profile-card context has been observed so far.'],
+    gauges: scoreGauges(account, humanScore, coverage),
     observationCount: account.observationCount,
   };
+}
+
+function createGauge(
+  id: string,
+  label: string,
+  value: number,
+  detail: string,
+): AccountScoreGaugeV1 {
+  return {
+    id,
+    label,
+    value: Math.max(0, Math.min(100, Math.round(value))),
+    detail,
+  };
+}
+
+function scoreGauges(
+  account: AccountEvidenceV1,
+  humanScore: number,
+  coverage: number,
+): AccountScoreGaugeV1[] {
+  const gauges: AccountScoreGaugeV1[] = [
+    createGauge('final', 'Final score', humanScore, 'Combined bounded account score.'),
+    createGauge('reliability', 'Reliability', coverage, 'How much local evidence supports it.'),
+  ];
+  const profileRatioGauge = followerRatioGauge(account.profile);
+  if (profileRatioGauge) gauges.push(profileRatioGauge);
+  const commonFollowsGauge = commonFollowsGaugeForProfile(account.profile);
+  if (commonFollowsGauge) gauges.push(commonFollowsGauge);
+  const replyMixGauge = replyMixGaugeForAccount(account);
+  if (replyMixGauge) gauges.push(replyMixGauge);
+  const repetitionGauge = repetitionGaugeForAccount(account);
+  if (repetitionGauge) gauges.push(repetitionGauge);
+  const linkGauge = linkGaugeForAccount(account);
+  if (linkGauge) gauges.push(linkGauge);
+  const mentionGauge = mentionGaugeForAccount(account);
+  if (mentionGauge) gauges.push(mentionGauge);
+  const textVarietyGauge = textVarietyGaugeForAccount(account);
+  if (textVarietyGauge) gauges.push(textVarietyGauge);
+  const timingGauge = timingGaugeForAccount(account);
+  if (timingGauge) gauges.push(timingGauge);
+  const mediaGauge = mediaGaugeForAccount(account);
+  if (mediaGauge) gauges.push(mediaGauge);
+
+  return gauges;
+}
+
+function followerRatioGauge(profile: ProfileSnapshotV1 | null): AccountScoreGaugeV1 | null {
+  if (!profile || profile.followers === null || profile.following === null) return null;
+
+  const ratio = profile.following > 0 ? profile.followers / profile.following : profile.followers;
+  let value = 50;
+  if (profile.followers === 0 && profile.following >= 200) value = 25;
+  else if (profile.following >= 2_000 && profile.followers < 200) value = 25;
+  else if (profile.following >= 1_000 && ratio < 0.08) value = 35;
+  else if (profile.followers >= 1_000_000 && ratio >= 50) value = 90;
+  else if (profile.followers >= 100_000 && ratio >= 20) value = 85;
+  else if (profile.followers >= 10_000 && ratio >= 5) value = 78;
+  else if (profile.followers >= 50 && ratio >= 0.2 && ratio <= 20) value = 65;
+  else if (profile.followers >= 1_000) value = 60;
+
+  return createGauge(
+    'follower-ratio',
+    'Follower ratio',
+    value,
+    `${profile.followers} followers / ${profile.following} following (${ratio.toFixed(1)}:1).`,
+  );
+}
+
+function commonFollowsGaugeForProfile(
+  profile: ProfileSnapshotV1 | null,
+): AccountScoreGaugeV1 | null {
+  if (!profile || profile.commonFollows === null) return null;
+
+  const value =
+    profile.commonFollows === 0
+      ? 50
+      : Math.min(85, 58 + Math.round(Math.sqrt(profile.commonFollows) * 5));
+
+  return createGauge(
+    'common-follows',
+    'Common follows',
+    value,
+    `${profile.commonFollows} rendered common follow(s).`,
+  );
+}
+
+function replyMixGaugeForAccount(account: AccountEvidenceV1): AccountScoreGaugeV1 | null {
+  const postCount = account.recentPosts.length;
+  if (postCount < 3) return null;
+
+  const replyRatio = account.aggregates.replyCount / postCount;
+  let value = 50;
+  if (
+    postCount >= 8 &&
+    replyRatio >= 0.85 &&
+    account.aggregates.distinctConversationCount > 0 &&
+    account.aggregates.distinctConversationCount <= 2
+  ) {
+    value = 35;
+  } else if (
+    replyRatio >= 0.45 &&
+    account.aggregates.distinctConversationCount >= 4 &&
+    account.aggregates.visibleParentContextCount >= 3
+  ) {
+    value = 72;
+  } else if (replyRatio > 0 && account.aggregates.distinctConversationCount >= 2) {
+    value = 58;
+  }
+
+  return createGauge(
+    'reply-mix',
+    'Tweet/reply mix',
+    value,
+    `${account.aggregates.replyCount}/${postCount} observed post(s) are replies across ${account.aggregates.distinctConversationCount} conversation(s).`,
+  );
+}
+
+function repetitionGaugeForAccount(account: AccountEvidenceV1): AccountScoreGaugeV1 | null {
+  if (account.recentPosts.length < 2) return null;
+
+  const penalty = duplicatePatternPenalty(account);
+  return createGauge(
+    'repetition',
+    'Repetition',
+    75 - penalty,
+    `${account.aggregates.exactDuplicateCount} exact and ${account.aggregates.nearDuplicateCount} near-duplicate signal(s).`,
+  );
+}
+
+function linkGaugeForAccount(account: AccountEvidenceV1): AccountScoreGaugeV1 | null {
+  const linkedPostCount = account.recentPosts.filter((post) => post.linkDomains.length > 0).length;
+  if (linkedPostCount === 0) return null;
+
+  return createGauge(
+    'links',
+    'Link pattern',
+    account.aggregates.repeatedLinkDomainCount > 0 ? 45 : 62,
+    `${linkedPostCount} linked post(s), ${account.aggregates.repeatedLinkDomainCount} repeated domain signal(s).`,
+  );
+}
+
+function mentionGaugeForAccount(account: AccountEvidenceV1): AccountScoreGaugeV1 | null {
+  const postCount = account.recentPosts.length;
+  if (postCount === 0 || account.aggregates.mentionTotal === 0) return null;
+
+  const average = account.aggregates.mentionTotal / postCount;
+  return createGauge(
+    'mentions',
+    'Mention density',
+    average <= 1.5 ? 65 : 55 - mentionPatternPenalty(account),
+    `${average.toFixed(1)} mention(s) per observed post.`,
+  );
+}
+
+function textVarietyGaugeForAccount(account: AccountEvidenceV1): AccountScoreGaugeV1 | null {
+  if (account.recentPosts.length < 5 || account.aggregates.textLengthMean < 20) return null;
+
+  const adjustment = textShapeScoreAdjustment(account);
+  return createGauge(
+    'text-variety',
+    'Text variety',
+    adjustment < 0 ? 38 : adjustment > 0 ? 66 : 52,
+    `Average length ${Math.round(account.aggregates.textLengthMean)}, variance ${Math.round(account.aggregates.textLengthStdDev)}.`,
+  );
+}
+
+function timingGaugeForAccount(account: AccountEvidenceV1): AccountScoreGaugeV1 | null {
+  if (!hasTimingSample(account)) return null;
+
+  const adjustment = timingScoreAdjustment(account);
+  return createGauge(
+    'timing',
+    'Timing gaps',
+    adjustment < 0 ? 40 : adjustment > 0 ? 66 : 52,
+    `${account.aggregates.timestampedPostCount} timestamped post(s) spanning ${Math.round(account.aggregates.timestampedSpanMs / 3_600_000)}h.`,
+  );
+}
+
+function mediaGaugeForAccount(account: AccountEvidenceV1): AccountScoreGaugeV1 | null {
+  if (account.recentPosts.length === 0 || account.aggregates.mediaPostCount === 0) return null;
+
+  return createGauge(
+    'media',
+    'Media mix',
+    58 +
+      Math.min(8, Math.round((account.aggregates.mediaPostCount / account.recentPosts.length) * 8)),
+    `${account.aggregates.mediaPostCount}/${account.recentPosts.length} observed post(s) include media.`,
+  );
+}
+
+function maximumHumanScoreFromEvidence(account: AccountEvidenceV1): number {
+  let cap = 68;
+  const postCount = account.recentPosts.length;
+
+  if (postCount >= 5) cap += 6;
+  if (postCount >= 10) cap += 4;
+  if (
+    account.aggregates.distinctConversationCount >= 4 &&
+    account.aggregates.visibleParentContextCount >= 3
+  ) {
+    cap += 8;
+  }
+  if (hasTimingSample(account) && timingScoreAdjustment(account) >= 0) cap += 3;
+  if (account.aggregates.mediaPostCount > 0 && postCount >= 3) cap += 3;
+  if (textShapeScoreAdjustment(account) > 0) cap += 4;
+
+  const profile = account.profile;
+  if (profile) {
+    if (profile.relationshipLabel) cap += 5;
+    if (profile.verified) cap += 2;
+    if (profile.commonFollows !== null && profile.commonFollows > 0) {
+      cap += profile.commonFollows >= 100 ? 12 : 7;
+    }
+    if (profile.followers !== null && profile.following !== null) {
+      const ratio =
+        profile.following > 0 ? profile.followers / profile.following : profile.followers;
+      if (profile.followers >= 1_000_000 && ratio >= 50) cap += 8;
+      else if (profile.followers >= 100_000 && ratio >= 20) cap += 6;
+      else if (profile.followers >= 10_000 && ratio >= 5) cap += 4;
+    } else if (profile.followers !== null && profile.followers >= 100_000) {
+      cap += 4;
+    }
+  }
+
+  return Math.min(100, cap);
 }
 
 function postWeight(post: PostSignatureV1): number {
@@ -699,6 +1036,61 @@ function textShapeScoreAdjustment(account: AccountEvidenceV1): number {
   return 0;
 }
 
+function conversationScoreAdjustment(account: AccountEvidenceV1): number {
+  const postCount = account.recentPosts.length;
+  if (postCount < 5) return 0;
+
+  const replyRatio = account.aggregates.replyCount / postCount;
+  if (
+    postCount >= 8 &&
+    replyRatio >= 0.85 &&
+    account.aggregates.distinctConversationCount > 0 &&
+    account.aggregates.distinctConversationCount <= 2
+  ) {
+    return -8;
+  }
+
+  if (
+    replyRatio >= 0.45 &&
+    account.aggregates.distinctConversationCount >= 4 &&
+    account.aggregates.visibleParentContextCount >= 3
+  ) {
+    return 5;
+  }
+
+  return 0;
+}
+
+function hasTimingSample(account: AccountEvidenceV1): boolean {
+  return (
+    account.aggregates.timestampedPostCount >= 8 &&
+    account.aggregates.timestampedSpanMs >= 6 * 60 * 60 * 1000
+  );
+}
+
+function timingScoreAdjustment(account: AccountEvidenceV1): number {
+  if (!hasTimingSample(account)) return 0;
+
+  const gapCount =
+    account.aggregates.gapBins.underFiveMinutes +
+    account.aggregates.gapBins.fiveMinutesToOneHour +
+    account.aggregates.gapBins.oneHourToSixHours +
+    account.aggregates.gapBins.overSixHours;
+  if (gapCount === 0) return 0;
+
+  const tightGapRatio = account.aggregates.gapBins.underFiveMinutes / gapCount;
+  if (tightGapRatio >= 0.65 && account.aggregates.gapBins.underFiveMinutes >= 5) return -10;
+  if (
+    account.aggregates.gapBins.oneHourToSixHours > 0 &&
+    account.aggregates.gapBins.overSixHours > 0 &&
+    tightGapRatio <= 0.35
+  ) {
+    return 4;
+  }
+
+  return 0;
+}
+
 function profileCoverageContribution(profile: ProfileSnapshotV1 | null): number {
   if (!profile) return 0;
 
@@ -738,6 +1130,11 @@ function profileScoreAdjustment(profile: ProfileSnapshotV1 | null): number {
   return Math.max(-20, Math.min(20, adjustment));
 }
 
+function activeHourFromTimestamp(timestamp: number | null): number | null {
+  if (timestamp === null || !Number.isFinite(timestamp)) return null;
+  return new Date(timestamp).getUTCHours();
+}
+
 function createEmptyAccount(observation: PostObservationV1): AccountEvidenceV1 {
   return {
     schemaVersion: ACCOUNT_EVIDENCE_SCHEMA_VERSION,
@@ -755,10 +1152,26 @@ function createEmptyAccount(observation: PostObservationV1): AccountEvidenceV1 {
 function summarizePosts(posts: PostSignatureV1[]): AccountAggregatesV1 {
   const exactHashCounts = new Map<string, number>();
   const linkDomainCounts = new Map<string, number>();
+  const conversationIds = new Set<string>();
+  const activeHourBins = Array.from({ length: 24 }, () => 0);
+  const gapBins: GapBinsV1 = {
+    underFiveMinutes: 0,
+    fiveMinutesToOneHour: 0,
+    oneHourToSixHours: 0,
+    overSixHours: 0,
+  };
   let mediaPostCount = 0;
   let mentionTotal = 0;
   let nearDuplicateCount = 0;
+  let visibleParentContextCount = 0;
+  let postCount = 0;
+  let replyCount = 0;
+  let quoteCount = 0;
+  let repostCount = 0;
   const textLengths = posts.map((post) => post.textLength);
+  const timestampedPosts = posts
+    .filter((post) => post.publishedAt !== null)
+    .sort((left, right) => (left.publishedAt ?? 0) - (right.publishedAt ?? 0));
 
   posts.forEach((post, index) => {
     if (post.exactTextHash && post.textLength >= 20) {
@@ -769,6 +1182,14 @@ function summarizePosts(posts: PostSignatureV1[]): AccountAggregatesV1 {
     });
     if (post.hasMedia) mediaPostCount += 1;
     mentionTotal += post.mentionCount;
+    if (post.conversationId) conversationIds.add(post.conversationId);
+    if (post.hasVisibleParentContext) visibleParentContextCount += 1;
+    if (post.activeHour !== null)
+      activeHourBins[post.activeHour] = (activeHourBins[post.activeHour] ?? 0) + 1;
+    if (post.kind === 'post') postCount += 1;
+    if (post.kind === 'reply') replyCount += 1;
+    if (post.kind === 'quote') quoteCount += 1;
+    if (post.kind === 'repost') repostCount += 1;
 
     for (let previousIndex = 0; previousIndex < index; previousIndex += 1) {
       const previous = posts[previousIndex];
@@ -778,6 +1199,20 @@ function summarizePosts(posts: PostSignatureV1[]): AccountAggregatesV1 {
       if (distance !== null && distance <= 10) nearDuplicateCount += 1;
     }
   });
+  for (let index = 1; index < timestampedPosts.length; index += 1) {
+    const previous = timestampedPosts[index - 1]?.publishedAt;
+    const current = timestampedPosts[index]?.publishedAt;
+    if (previous === null || previous === undefined || current === null || current === undefined) {
+      continue;
+    }
+    const gapMs = Math.abs(current - previous);
+    if (gapMs < 5 * 60 * 1000) gapBins.underFiveMinutes += 1;
+    else if (gapMs < 60 * 60 * 1000) gapBins.fiveMinutesToOneHour += 1;
+    else if (gapMs < 6 * 60 * 60 * 1000) gapBins.oneHourToSixHours += 1;
+    else gapBins.overSixHours += 1;
+  }
+  const firstTimestamp = timestampedPosts[0]?.publishedAt ?? null;
+  const lastTimestamp = timestampedPosts.at(-1)?.publishedAt ?? null;
 
   return {
     exactDuplicateCount: Array.from(exactHashCounts.values()).reduce(
@@ -791,6 +1226,19 @@ function summarizePosts(posts: PostSignatureV1[]): AccountAggregatesV1 {
     ),
     mediaPostCount,
     mentionTotal,
+    distinctConversationCount: conversationIds.size,
+    visibleParentContextCount,
+    postCount,
+    replyCount,
+    quoteCount,
+    repostCount,
+    activeHourBins,
+    gapBins,
+    timestampedPostCount: timestampedPosts.length,
+    timestampedSpanMs:
+      firstTimestamp !== null && lastTimestamp !== null
+        ? Math.max(0, lastTimestamp - firstTimestamp)
+        : 0,
     textLengthMean: mean(textLengths),
     textLengthStdDev: standardDeviation(textLengths),
   };

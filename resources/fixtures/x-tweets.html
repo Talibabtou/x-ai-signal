@@ -14,12 +14,14 @@
       <div data-testid="socialContext">12 replies, 34 likes</div>
     </article>
 
-    <article data-testid="tweet" data-fixture="reply">
+    <article data-testid="tweet" data-fixture="reply" data-conversation-id="111">
       <div data-testid="Tweet-User-Avatar"></div>
       <div data-testid="User-Name">
         <a href="/bob"><span>Bob</span></a>
         <a href="/bob"><span>@bob</span></a>
       </div>
+      <a href="/alice/status/111" data-testid="reply"><span>Replying to @alice</span></a>
+      <a href="/bob/status/222"><time datetime="2026-07-05T10:40:00.000Z">50m</time></a>
       <div data-testid="tweetText">This is the reply body.</div>
     </article>
 
@@ -106,6 +108,7 @@
     </div>
 
     <main data-fixture="profile-page">
+      <div data-testid="UserAvatar-Container-profileacct"></div>
       <a href="/profileacct"><span>Profile Account</span></a>
       <svg data-testid="icon-verified"><title>Verified account</title></svg>
       <a href="/profileacct"><span>@profileacct</span></a>

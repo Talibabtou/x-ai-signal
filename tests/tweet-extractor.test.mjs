@@ -27,12 +27,15 @@ test('extracts rendered tweet and author evidence', () => {
     promoted: false,
     postId: '123456789',
     publishedAt: Date.parse('2026-07-05T10:30:00.000Z'),
+    conversationId: '123456789',
+    activeHour: 10,
     probableSpam: false,
     linkDomains: [],
     mentionCount: 0,
     hasMedia: false,
-    kind: 'unknown',
+    kind: 'post',
     language: 'en',
+    hasVisibleParentContext: false,
   });
 });
 
@@ -44,7 +47,14 @@ test('extracts a rendered post ID and timestamp', () => {
 });
 
 test('extracts replies without surrounding UI', () => {
-  assert.equal(extractRenderedTweet(fixture('reply')).text, 'This is the reply body.');
+  const evidence = extractRenderedTweet(fixture('reply'));
+
+  assert.equal(evidence.text, 'This is the reply body.');
+  assert.equal(evidence.postId, '222');
+  assert.equal(evidence.conversationId, '111');
+  assert.equal(evidence.kind, 'reply');
+  assert.equal(evidence.hasVisibleParentContext, true);
+  assert.equal(evidence.activeHour, 10);
 });
 
 test('does not mix quoted text into the post body', () => {

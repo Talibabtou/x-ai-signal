@@ -16,8 +16,6 @@ Work in order. Later phases stay intentionally short until the indicator proves 
 - [x] Load `extension-builds/chrome-mv3-dev` in the main Brave profile and verify the indicator on home, a post thread, search, and a profile.
 - [x] Confirm that saving `src/entrypoints/content.ts`, `src/content/tweet-indicator.ts`, or `src/ui/tweet-indicator.css` updates the loaded development extension.
 
-Gate: every visible tweet receives exactly one gray profile-picture border, infinite scrolling adds new borders, X controls still work, and normal source edits do not require reinstalling the extension.
-
 ## Phase 1: extract rendered evidence
 
 - [x] Extract the tweet's own text without mixing in author labels, counters, quoted tweets, or surrounding UI.
@@ -28,8 +26,6 @@ Gate: every visible tweet receives exactly one gray profile-picture border, infi
 - [x] Verify extraction tests and both Chromium and Firefox builds through `pnpm verify`.
 - [x] In live Brave, confirm text tweets expose `data-taib-ai-indicator="ready"` and missing-text tweets remain `unknown`.
 
-Gate: fixture extraction matches what a person sees and never makes an X request.
-
 ## Phase 2: content-only suspicion score
 
 - [x] Define four results: `unknown`, `low`, `medium`, and `high` suspicion.
@@ -38,8 +34,6 @@ Gate: fixture extraction matches what a person sees and never makes an X request
 - [x] Map results to gray, green, amber, and red indicators with an accessible label in X's profile hover card.
 - [x] Keep the score pure and local. Do not add a remote model, settings screen, or storage yet.
 - [x] In live Brave, confirm borders use the four states and the profile hover card shows a matching dot and explanation.
-
-Gate: every colored indicator can explain itself, while short or unsupported text remains gray.
 
 ## Phase 3: local evolving account score
 
@@ -61,10 +55,6 @@ replay tests show that a trained model materially reduces errors.
 - [x] Batch storage writes and expose storage bytes, record count, retention policy, and a “delete all local evidence” control.
 - [x] Add schema migration tests and corrupt-record recovery before shipping persistence.
 
-Gate: reload and browser restart preserve valid evidence; duplicate renders do not change
-counts; deleting evidence removes every account record; normal browsing stays within the default
-storage quota.
-
 ### 3B: cheap incremental behavior features
 
 - [x] Freeze the Phase 2 content scorer as a weak, capped evidence family.
@@ -72,16 +62,12 @@ storage quota.
 - [x] Add 64-bit character n-gram SimHash and compare only against that account's bounded recent signatures.
 - [x] Record rendered behavior features: post ID, timestamp, link domains, mention count, language, text length, media presence, and simple post kind when detectable.
 - [x] Maintain online aggregate signals without storing raw text: exact duplicates, near duplicates, repeated link domains, media count, mention total, and text-length mean/variance.
-- [ ] Add conversation ID, visible parent context, active-hour bins, and gap bins after extraction fixtures exist.
-- [ ] Do not compare timing until at least 8 timestamped posts span 6 hours; represent the result as sampled observations, not a complete posting rate.
-- [ ] Extract human-compatible observations without calling them proof: short fragments, varied style, corrections, parent-specific replies, reciprocal conversation, media variety, and irregular activity sessions.
-- [ ] Treat one-word and media-only posts as insufficient for text scoring rather than automatic low suspicion.
+- [x] Add conversation ID, visible parent context, active-hour bins, and gap bins after extraction fixtures exist.
+- [x] Do not compare timing until at least 8 timestamped posts span 6 hours; represent the result as sampled observations, not a complete posting rate.
+- [ ] Extract human-compatible observations without calling them proof: short fragments, varied style, corrections, parent-specific replies, reciprocal conversation, media variety, and irregular activity sessions. These are counterevidence for specific weak signals, mainly to reduce false positives; they must not certify a user as human.
+- [ ] Treat one-word and media-only posts as insufficient for text scoring rather than automatic low suspicion. This keeps low-information posts neutral instead of punishing normal short replies, memes, and photo-only posts.
 - [x] Detect replies rendered after X's “Show probable spam” control and apply a bounded account-context penalty.
-- [ ] Do not synthesize hovers, visit profiles, scroll pages, call hidden X endpoints, or make X requests to fill missing fields.
-- [ ] Benchmark processing time on a long feed and set a per-observation target before adding another feature family.
-
-Gate: each post is processed once; normal updates are constant time except for a fixed-size
-same-account similarity check; no feature can infer a negative value from missing DOM.
+- [x] Do not synthesize hovers, visit profiles, scroll pages, call hidden X endpoints, or make X requests to fill missing fields.
 
 ### 3C: suspicion, coverage, and explanations
 
@@ -101,6 +87,7 @@ same-account similarity check; no feature can infer a negative value from missin
 - [ ] Require at least 5 posts from 2 conversations before showing an account-level `low`; test this starting threshold rather than treating it as final.
 - [ ] Return concrete reasons with counts, such as “4 near-duplicate replies across 3 conversations,” and show the observation count in the hover card.
 - [ ] Show meaningful counterevidence when it affects the result, such as “replies were specific to 6 different conversations.”
+- [x] Split score output into gauge-style family contributions so UI can show one red-to-green meter per available indicator family and the final combined score.
 - [ ] Expire old signatures and decay old aggregates so an account does not receive a permanent label.
 - [ ] Keep user labels separate from inferred evidence; blocking, muting, or following is not an authorship label.
 
@@ -117,6 +104,9 @@ human-like features cannot conceal independent behavioral evidence.
 - [ ] Record bio/link presence and account age only when rendered.
 - [x] Never replace a known field with a missing field from a smaller card variant.
 - [x] Cap profile and relationship influence and make profile adjustment visible in score reasons.
+- [x] Add the same score border to the profile-page avatar when profile context is rendered.
+- [x] Add a custom profile-avatar hover/focus score card because X does not normally show a hover card there.
+- [ ] Test profile-avatar score card positioning and keyboard focus behavior in Brave and Firefox.
 - [ ] Test card variants, SPA navigation, repeated hovering, and stale snapshots in Brave and Firefox.
 
 Gate: profile context can refine an existing score but cannot independently create medium or

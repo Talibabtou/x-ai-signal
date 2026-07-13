@@ -31,7 +31,7 @@ test('returns low when supported text has no configured signals', () => {
   );
 
   assert.equal(result.level, 'low');
-  assert.equal(result.humanScore, 70);
+  assert.equal(result.humanScore, 58);
   assert.equal(result.coverage, 20);
 });
 
@@ -41,7 +41,7 @@ test('recognizes a strongly structured list', () => {
   );
 
   assert.deepEqual(result.reasons, ['Uses a strongly structured list or sequence.']);
-  assert.equal(result.level, 'low');
+  assert.equal(result.level, 'medium');
 });
 
 test('recognizes a cluster of formulaic phrases', () => {
@@ -59,7 +59,7 @@ test('recognizes repeated contrast framing', () => {
   );
 
   assert.deepEqual(result.reasons, ['Repeats contrast-based sentence framing.']);
-  assert.equal(result.level, 'low');
+  assert.equal(result.level, 'medium');
 });
 
 test('returns high only when several independent signals accumulate', () => {
@@ -78,7 +78,7 @@ test('applies a bounded penalty when X places a reply behind probable spam', () 
     { probableSpam: true },
   );
 
-  assert.equal(result.humanScore, 50);
+  assert.equal(result.humanScore, 38);
   assert.equal(result.coverage, 30);
   assert.equal(result.level, 'medium');
   assert.ok(result.reasons.includes('X placed this reply behind its probable-spam control.'));

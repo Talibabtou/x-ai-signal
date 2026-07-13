@@ -16,6 +16,9 @@ export type RenderedTweetEvidence = {
   hasMedia: boolean;
   kind: 'post' | 'reply' | 'quote' | 'repost' | 'unknown';
   language: string | null;
+  conversationId: string | null;
+  hasVisibleParentContext: boolean;
+  activeHour: number | null;
 };
 
 const HANDLE_PATTERN = /^@[A-Za-z0-9_]{1,15}$/;
@@ -74,24 +77,38 @@ function extractLanguage(tweet: Element): string | null {
   return language || null;
 }
 
+function extractVisibleParentContext(tweet: Element): boolean {
+  return Boolean(tweet.querySelector(X_SELECTORS.replyContext));
+}
+
 function extractPostIdentity(tweet: Element): {
   postId: string | null;
   publishedAt: number | null;
+  conversationId: string | null;
+  activeHour: number | null;
 } {
   for (const time of tweet.querySelectorAll('time[datetime]')) {
     if (time.closest(X_SELECTORS.quote)) continue;
 
     const link = time.closest<HTMLAnchorElement>('a[href*="/status/"]');
-    const postId = link?.getAttribute('href')?.match(/\/status\/(\d+)/)?.[1] ?? null;
+    const statusId = link?.getAttribute('href')?.match(/\/status\/(\d+)/)?.[1] ?? null;
     const parsedTime = Date.parse(time.getAttribute('datetime') ?? '');
+    const publishedAt = Number.isNaN(parsedTime) ? null : parsedTime;
 
     return {
-      postId,
-      publishedAt: Number.isNaN(parsedTime) ? null : parsedTime,
+      postId: statusId,
+      publishedAt,
+      conversationId: tweet.getAttribute('data-conversation-id') || statusId,
+      activeHour: publishedAt === null ? null : new Date(publishedAt).getUTCHours(),
     };
   }
 
-  return { postId: null, publishedAt: null };
+  return {
+    postId: null,
+    publishedAt: null,
+    conversationId: tweet.getAttribute('data-conversation-id'),
+    activeHour: null,
+  };
 }
 
 function normalizedControlText(element: Element): string {
@@ -151,6 +168,7 @@ export function extractRenderedTweet(tweet: Element): RenderedTweetEvidence {
   const text = extractOwnText(tweet);
   const handle = extractHandle(author);
   const identity = extractPostIdentity(tweet);
+  const hasVisibleParentContext = extractVisibleParentContext(tweet);
 
   return {
     status: text && author ? 'ready' : 'unknown',
@@ -164,8 +182,15 @@ export function extractRenderedTweet(tweet: Element): RenderedTweetEvidence {
     linkDomains: extractLinkDomains(tweet),
     mentionCount: extractMentionCount(text),
     hasMedia: Boolean(tweet.querySelector(X_SELECTORS.media)),
-    kind: tweet.querySelector(X_SELECTORS.quote) ? 'quote' : 'unknown',
+    kind: tweet.querySelector(X_SELECTORS.quote)
+      ? 'quote'
+      : hasVisibleParentContext
+        ? 'reply'
+        : identity.postId
+          ? 'post'
+          : 'unknown',
     language: extractLanguage(tweet),
+    hasVisibleParentContext,
     ...identity,
   };
 }

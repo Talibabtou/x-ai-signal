@@ -52,3 +52,136 @@
   font-weight: 400;
   line-height: 20px;
 }
+
+.taib-ai-profile-score-card {
+  position: fixed;
+  z-index: 2147483647;
+  box-sizing: border-box;
+  width: var(--taib-ai-profile-card-width, 340px);
+  max-height: min(620px, calc(100vh - 24px));
+  overflow: auto;
+  padding: 0;
+  color: rgb(15 20 25);
+  background: rgb(255 255 255);
+  border: 1px solid rgb(207 217 222);
+  border-radius: 16px;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 20%);
+  font-family:
+    TwitterChirp, -apple-system, "system-ui", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  .taib-ai-profile-score-card {
+    color: rgb(231 233 234);
+    background: rgb(0 0 0);
+    border-color: rgb(47 51 54);
+    box-shadow: 0 8px 28px rgb(255 255 255 / 15%);
+  }
+}
+
+.taib-ai-profile-score-summary {
+  padding: 14px 16px;
+  border-top: 0;
+  border-bottom: 1px solid rgb(207 217 222);
+  pointer-events: auto;
+}
+
+@media (prefers-color-scheme: dark) {
+  .taib-ai-profile-score-summary {
+    border-bottom-color: rgb(47 51 54);
+  }
+}
+
+.taib-ai-profile-score-body {
+  padding: 14px 16px 0;
+}
+
+.taib-ai-score-meter-wrap + .taib-ai-score-meter-wrap {
+  margin-top: 12px;
+}
+
+.taib-ai-score-meter + .taib-ai-score-meter {
+  margin-top: 14px;
+}
+
+.taib-ai-score-meter-row {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.taib-ai-score-meter-row strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.taib-ai-score-meter-track {
+  position: relative;
+  height: 6px;
+  background: linear-gradient(90deg, rgb(244 33 46), rgb(255 212 0), rgb(0 186 124));
+  border-radius: 999px;
+}
+
+.taib-ai-score-meter-cursor {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  border: 2px solid Canvas;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.taib-ai-score-meter-detail {
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  color: rgb(83 100 113);
+  font-size: 13px;
+  line-height: 17px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .taib-ai-score-meter-detail {
+    color: rgb(113 118 123);
+  }
+}
+
+.taib-ai-profile-score-reasons {
+  padding: 14px 16px 16px;
+  margin-top: 16px;
+  border-top: 1px solid rgb(207 217 222);
+}
+
+@media (prefers-color-scheme: dark) {
+  .taib-ai-profile-score-reasons {
+    border-top-color: rgb(47 51 54);
+  }
+}
+
+.taib-ai-profile-score-reasons-title {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.taib-ai-profile-score-reasons ul {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.taib-ai-profile-score-reasons li {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.taib-ai-profile-score-reasons li + li {
+  margin-top: 6px;
+}
